@@ -2,26 +2,26 @@
 <html lang="fr">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <meta name="theme-color" content="#1e40af">
-    <title>Concours de Pêche - Firebase Live</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Concours de Pêche - Live</title>
     
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
-    
-    <script crossorigin src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
-    <script crossorigin src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+
+    <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
     <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { font-family: system-ui, -apple-system, sans-serif; background-color: #f3f4f6; }
-        html, body, #root { height: 100%; }
+        body { background-color: #f3f4f6; }
     </style>
 </head>
 <body>
     <div id="root"></div>
-    <script>
-        // CONFIGURATION FIREBASE (TES INFOS)
+
+    <script type="text/babel">
+        // CONFIGURATION FIREBASE
         const firebaseConfig = {
             apiKey: "AIzaSyB44m6DoeyQSNMctS0hKlpaPR5vNOTNsW0",
             authDomain: "concours-peche.firebaseapp.com",
@@ -30,204 +30,249 @@
             messagingSenderId: "376446532224",
             appId: "1:376446532224:web:4f9c1ffd2f4fe3ef450465"
         };
+        
+        // Initialisation
         firebase.initializeApp(firebaseConfig);
         const db = firebase.firestore();
 
-        const { useState, useEffect, createElement: h } = React;
+        const { useState, useEffect } = React;
 
-        // TES ICÔNES
-        const ArrowLeft = () => h('svg', { width: 20, height: 20, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 2 }, h('line', { x1: 19, y1: 12, x2: 5, y2: 12 }), h('polyline', { points: '12 19 5 12 12 5' }));
-        const Users = () => h('svg', { width: 32, height: 32, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 2 }, h('path', { d: 'M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2' }), h('circle', { cx: 9, cy: 7, r: 4 }), h('path', { d: 'M23 21v-2a4 4 0 0 0-3-3.87' }), h('path', { d: 'M16 3.13a4 4 0 0 1 0 7.75' }));
-        const Trophy = () => h('svg', { width: 32, height: 32, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 2 }, h('path', { d: 'M6 9H4.5a2.5 2.5 0 0 1 0-5H6' }), h('path', { d: 'M18 9h1.5a2.5 2.5 0 0 0 0-5H18' }), h('path', { d: 'M4 22h16' }), h('path', { d: 'M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22' }), h('path', { d: 'M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22' }), h('path', { d: 'M18 2H6v7a6 6 0 0 0 12 0V2Z' }));
-        const Fish = () => h('svg', { width: 64, height: 64, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 2 }, h('path', { d: 'M6.5 12c.94-3.46 4.94-6 8.5-6 3.56 0 6.06 2.54 7 6-.94 3.47-3.44 6-7 6s-7.56-2.53-8.5-6Z' }), h('path', { d: 'M18 12v.5' }), h('path', { d: 'M16 17.93a9.77 9.77 0 0 1 0-11.86' }), h('path', { d: 'M7 10.67C7 8 5.58 5.97 2.73 5.5c-1 1.5-1 5 .23 6.5-1.24 1.5-1.24 5-.23 6.5C5.58 18.03 7 16 7 13.33' }), h('path', { d: 'M10.46 7.26C10.2 5.88 9.17 4.24 8 3h5.8a2 2 0 0 1 1.98 1.67l.23 1.4' }), h('path', { d: 'm16.01 17.93-.23 1.4A2 2 0 0 1 13.8 21H9.5a5.96 5.96 0 0 0 1.49-3.98' }));
-        const SettingsIcon = () => h('svg', { width: 24, height: 24, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 2 }, h('path', { d: 'M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z' }), h('circle', { cx: 12, cy: 12, r: 3 }));
-        const LogOut = () => h('svg', { width: 24, height: 24, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 2 }, h('path', { d: 'M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4' }), h('polyline', { points: '16 17 21 12 16 7' }), h('line', { x1: 21, y1: 12, x2: 9, y2: 12 }));
-
-        function FishingContestApp() {
-            const [currentPage, setCurrentPage] = useState('login');
-            const [fishermen, setFishermen] = useState([]);
-            const [isLoaded, setIsLoaded] = useState(false);
-            const [contestInfo, setContestInfo] = useState({ title: 'Concours de Pêche', date: 'Date à définir' });
-            const [currentUser, setCurrentUser] = useState(null);
-
-            // --- SYNCHRONISATION FIREBASE ---
+        // Composant d'icône Lucide
+        const Icon = ({ name, size = 24, className = "" }) => {
             useEffect(() => {
-                // Écoute les changements sur Firestore pour les pêcheurs et les réglages
-                const unsub = db.collection('app_data').onSnapshot(snap => {
+                if (window.lucide) window.lucide.createIcons();
+            }, [name]);
+            return <i data-lucide={name} style={{ width: size, height: size }} className={className}></i>;
+        };
+
+        const FishingContestApp = () => {
+            const [currentPage, setCurrentPage] = useState('index');
+            const [fishermen, setFishermen] = useState([]);
+            const [contestInfo, setContestInfo] = useState({ title: 'Concours de Pêche', date: '2025' });
+            const [loading, setLoading] = useState(true);
+
+            // CONNEXION TEMPS RÉEL FIREBASE
+            useEffect(() => {
+                const unsub = db.collection('competition').onSnapshot(snap => {
                     snap.forEach(doc => {
-                        if (doc.id === 'fishermen_list') setFishermen(doc.data().list || []);
-                        if (doc.id === 'contest_config') setContestInfo(doc.data().info || { title: 'Concours de Pêche', date: '2025' });
+                        if (doc.id === 'data') setFishermen(doc.data().list || []);
+                        if (doc.id === 'settings') setContestInfo(doc.data().info || { title: 'Concours de Pêche', date: '2025' });
                     });
-                    setIsLoaded(true);
+                    setLoading(false);
                 });
                 return () => unsub();
             }, []);
 
-            const updateFishermen = (newList) => {
-                setFishermen(newList);
-                db.collection('app_data').doc('fishermen_list').set({ list: newList });
+            // SAUVEGARDE VERS FIREBASE
+            const saveToFirebase = (newList) => {
+                db.collection('competition').doc('data').set({ list: newList });
             };
 
-            const updateConfig = (newInfo) => {
-                setContestInfo(newInfo);
-                db.collection('app_data').doc('contest_config').set({ info: newInfo });
+            const saveContestInfo = (info) => {
+                setContestInfo(info);
+                db.collection('competition').doc('settings').set({ info });
             };
 
-            // --- LOGIQUE MÉTIER ---
             const addFisherman = (nom, prenom, poste) => {
-                if (!nom || !prenom) return;
-                if (poste && fishermen.find(f => f.poste === poste)) { alert('Poste déjà pris !'); return; }
-                const newList = [...fishermen, { nom, prenom, poste: poste || null, weights: [] }];
-                updateFishermen(newList);
+                if (nom && prenom) {
+                    if (poste && fishermen.find(f => f.poste === poste)) {
+                        alert('Ce poste est déjà occupé !');
+                        return false;
+                    }
+                    const newList = [...fishermen, { nom, prenom, poste: poste || null, weights: [] }];
+                    saveToFirebase(newList);
+                    return true;
+                }
+                return false;
+            };
+
+            const deleteFisherman = (index) => {
+                if (window.confirm('Supprimer ce pêcheur ?')) {
+                    const newList = fishermen.filter((_, idx) => idx !== index);
+                    saveToFirebase(newList);
+                }
             };
 
             const addWeight = (poste, period, weight, fishCount) => {
                 const newList = fishermen.map(f => {
                     if (f.poste === poste) {
-                        const weights = [...(f.weights || []), { 
-                            period, 
-                            weight: parseFloat(weight) || 0, 
-                            fishCount: parseInt(fishCount) || 1, 
-                            time: new Date().toISOString() 
-                        }];
+                        return { 
+                            ...f, 
+                            weights: [...(f.weights || []), { 
+                                period, 
+                                weight: parseFloat(weight) || 0, 
+                                fishCount: parseInt(fishCount) || 1,
+                                time: new Date().toISOString() 
+                            }] 
+                        };
+                    }
+                    return f;
+                });
+                saveToFirebase(newList);
+            };
+
+            const deleteWeight = (poste, index) => {
+                const newList = fishermen.map(f => {
+                    if (f.poste === poste) {
+                        const weights = [...(f.weights || [])];
+                        weights.splice(index, 1);
                         return { ...f, weights };
                     }
                     return f;
                 });
-                updateFishermen(newList);
+                saveToFirebase(newList);
             };
 
-            const getTotalWeight = (f) => (f.weights || []).reduce((s, w) => s + w.weight, 0);
-            const getTotalFish = (f) => (f.weights || []).reduce((s, w) => s + (w.fishCount || 0), 0);
+            const getTotalWeight = (f) => f.weights ? f.weights.reduce((sum, w) => sum + w.weight, 0) : 0;
+            const getTotalFishCount = (f) => f.weights ? f.weights.reduce((sum, w) => sum + (w.fishCount || 0), 0) : 0;
+            const getWeightByPeriod = (f, p) => f.weights ? f.weights.filter(w => w.period === p).reduce((sum, w) => sum + w.weight, 0) : 0;
 
-            // --- PAGES ---
+            if (loading) return <div className="h-screen flex items-center justify-center font-bold">Synchronisation Firebase...</div>;
 
-            if (!isLoaded) return h('div', { className: 'h-full flex items-center justify-center font-bold text-blue-800' }, 'CHARGEMENT FIREBASE...');
+            // --- VUES (Exactement comme dans ton testprog.html) ---
 
-            // LOGIN : Utilise ton code Admin (1982) direct
-            if (!currentUser) return h('div', { className: 'min-h-screen bg-blue-900 flex items-center justify-center p-4' },
-                h('div', { className: 'bg-white p-8 rounded-xl shadow-2xl w-full max-w-md' },
-                    h(Fish, { className: 'mx-auto mb-4 text-blue-600' }),
-                    h('h1', { className: 'text-2xl font-bold text-center mb-6 text-blue-900' }, contestInfo.title),
-                    h('input', { id:'user', type: 'text', placeholder: 'Utilisateur', className: 'w-full border-2 p-3 mb-4 rounded-lg outline-none focus:border-blue-500' }),
-                    h('input', { id:'pass', type: 'password', placeholder: 'Mot de passe', className: 'w-full border-2 p-3 mb-6 rounded-lg outline-none focus:border-blue-500' }),
-                    h('button', { 
-                        onClick: () => {
-                            const u = document.getElementById('user').value;
-                            const p = document.getElementById('pass').value;
-                            if (u === 'admin' && p === '1982') {
-                                setCurrentUser({ username: 'admin' });
-                                setCurrentPage('index');
-                            } else {
-                                alert('Identifiants incorrects');
-                            }
-                        },
-                        className: 'w-full bg-blue-600 text-white font-bold py-3 rounded-lg' 
-                    }, 'SE CONNECTER')
-                )
+            const IndexPage = () => (
+                <div className="min-h-screen p-4">
+                    <div className="flex justify-end mb-4">
+                        <button onClick={() => setCurrentPage('settings')} className="bg-gray-600 text-white p-3 rounded-full shadow-lg">
+                            <Icon name="settings" />
+                        </button>
+                    </div>
+                    <h1 className="text-3xl font-bold text-center mb-2 text-blue-900">{contestInfo.title}</h1>
+                    <h2 className="text-xl text-center mb-8 text-gray-700">{contestInfo.date}</h2>
+                    <div className="max-w-2xl mx-auto grid grid-cols-2 gap-4">
+                        <button onClick={() => setCurrentPage('inscription')} className="bg-orange-500 text-white font-bold py-6 px-4 rounded-lg shadow-lg">
+                            <Icon name="users" className="mx-auto mb-2" /> Inscription
+                        </button>
+                        <button onClick={() => setCurrentPage('resultats')} className="bg-green-500 text-white font-bold py-6 px-4 rounded-lg shadow-lg">
+                            <Icon name="trophy" className="mx-auto mb-2" /> Résultats
+                        </button>
+                        {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14].map(num => {
+                            const f = fishermen.find(p => p.poste === num.toString());
+                            return (
+                                <button key={num} onClick={() => setCurrentPage(`poste${num}`)} 
+                                    className={`${f ? 'bg-blue-600 text-white' : 'bg-white text-blue-900'} border font-semibold py-4 px-4 rounded-lg shadow`}>
+                                    Poste {num} {f && `(${f.nom})`}
+                                </button>
+                            );
+                        })}
+                    </div>
+                </div>
             );
 
-            // INDEX
-            if (currentPage === 'index') return h('div', { className: 'min-h-screen p-4 max-w-2xl mx-auto' },
-                h('div', { className: 'flex justify-between items-center mb-6' },
-                    h('div', { className: 'bg-blue-600 text-white px-4 py-2 rounded-lg font-bold' }, '👤 Admin'),
-                    h('button', { onClick: () => setCurrentUser(null), className: 'bg-red-600 text-white p-3 rounded-full' }, h(LogOut))
-                ),
-                h('h1', { className: 'text-3xl font-bold text-center mb-2 text-blue-900' }, contestInfo.title),
-                h('h2', { className: 'text-center mb-8 text-gray-600' }, contestInfo.date),
-                h('div', { className: 'grid grid-cols-2 gap-4' },
-                    h('button', { onClick: () => setCurrentPage('inscription'), className: 'bg-orange-500 text-white font-bold py-6 rounded-xl shadow-lg' }, h(Users, {className:'mx-auto mb-2'}), 'Inscriptions'),
-                    h('button', { onClick: () => setCurrentPage('resultats'), className: 'bg-green-600 text-white font-bold py-6 rounded-xl shadow-lg' }, h(Trophy, {className:'mx-auto mb-2'}), 'Résultats'),
-                    ...[1,2,3,4,5,6,7,8,9,10,11,12,13,14].map(n => {
-                        const f = fishermen.find(f => f.poste === n.toString());
-                        return h('button', { key: n, onClick: () => setCurrentPage(`poste${n}`), className: `${f ? 'bg-blue-600 text-white' : 'bg-blue-100 text-blue-900'} font-bold py-4 rounded-lg shadow` }, `Poste ${n}`);
-                    }),
-                    h('button', { onClick: () => setCurrentPage('settings'), className: 'col-span-2 bg-gray-700 text-white font-bold py-4 rounded-xl flex items-center justify-center gap-2' }, h(SettingsIcon), 'Paramètres du concours')
-                )
-            );
-
-            // INSCRIPTIONS
-            if (currentPage === 'inscription') return h('div', { className: 'p-4 max-w-xl mx-auto' },
-                h('button', { onClick: () => setCurrentPage('index'), className: 'mb-4 text-blue-600' }, h(ArrowLeft)),
-                h('div', { className: 'bg-white p-6 rounded-xl shadow-lg' },
-                    h('h2', { className: 'text-xl font-bold mb-4' }, 'Nouveau Pêcheur'),
-                    h('input', { id:'n', placeholder: 'Nom', className: 'w-full border p-3 mb-3 rounded' }),
-                    h('input', { id:'pr', placeholder: 'Prénom', className: 'w-full border p-3 mb-3 rounded' }),
-                    h('input', { id:'po', type:'number', placeholder: 'Poste', className: 'w-full border p-3 mb-4 rounded' }),
-                    h('button', { 
-                        onClick: () => {
-                            addFisherman(document.getElementById('n').value, document.getElementById('pr').value, document.getElementById('po').value);
-                            setCurrentPage('index');
-                        },
-                        className: 'w-full bg-blue-600 text-white font-bold py-3 rounded' 
-                    }, 'VALIDER')
-                )
-            );
-
-            // RÉSULTATS
-            if (currentPage === 'resultats') {
-                const sorted = [...fishermen].sort((a,b) => getTotalWeight(b) - getTotalWeight(a));
-                return h('div', { className: 'p-4 max-w-2xl mx-auto' },
-                    h('button', { onClick: () => setCurrentPage('index'), className: 'mb-4 text-blue-600' }, h(ArrowLeft)),
-                    h('h1', { className: 'text-2xl font-bold text-center mb-6 text-blue-900' }, 'CLASSEMENT FINAL'),
-                    sorted.map((f, i) => h('div', { key: i, className: 'bg-white p-4 mb-2 rounded-lg shadow flex justify-between items-center' },
-                        h('div', null, h('span', { className: 'font-bold mr-2' }, `#${i+1}`), `${f.nom} ${f.prenom} (Poste ${f.poste})`),
-                        h('div', { className: 'font-bold text-green-600 text-xl' }, `${getTotalWeight(f).toFixed(3)} kg`)
-                    ))
+            const InscriptionPage = () => {
+                const [form, setForm] = useState({ nom: '', prenom: '', poste: '' });
+                return (
+                    <div className="min-h-screen p-4">
+                        <button onClick={() => setCurrentPage('index')} className="mb-4 flex items-center text-blue-600"><Icon name="arrow-left" size={20} className="mr-2" /> Retour</button>
+                        <h1 className="text-2xl font-bold mb-6">Inscription</h1>
+                        <div className="bg-white p-6 rounded-lg shadow mb-6">
+                            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                                <input placeholder="Nom" value={form.nom} onChange={e => setForm({...form, nom: e.target.value})} className="border p-2 rounded" />
+                                <input placeholder="Prénom" value={form.prenom} onChange={e => setForm({...form, prenom: e.target.value})} className="border p-2 rounded" />
+                                <input type="number" placeholder="Poste" value={form.poste} onChange={e => setForm({...form, poste: e.target.value})} className="border p-2 rounded" />
+                                <button onClick={() => { if(addFisherman(form.nom, form.prenom, form.poste)) setForm({nom:'', prenom:'', poste:''}) }} className="bg-blue-600 text-white font-bold p-2 rounded">Ajouter</button>
+                            </div>
+                        </div>
+                        <div className="bg-white rounded shadow">
+                            {fishermen.map((f, i) => (
+                                <div key={i} className="p-4 border-b flex justify-between items-center">
+                                    <span>Poste {f.poste} : <b>{f.nom} {f.prenom}</b></span>
+                                    <button onClick={() => deleteFisherman(i)} className="text-red-500">Supprimer</button>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
                 );
-            }
+            };
 
-            // POSTE INDIVIDUEL
-            if (currentPage.startsWith('poste')) {
-                const num = currentPage.replace('poste', '');
-                const f = fishermen.find(f => f.poste === num);
-                return h('div', { className: 'p-4 max-w-xl mx-auto' },
-                    h('button', { onClick: () => setCurrentPage('index'), className: 'mb-4 text-blue-600' }, h(ArrowLeft)),
-                    h('div', { className: 'bg-white p-6 rounded-xl shadow-lg text-center' },
-                        h('h1', { className: 'text-2xl font-bold mb-4' }, `Poste ${num}`),
-                        f ? h('div', null,
-                            h('p', { className: 'text-xl font-bold mb-2' }, `${f.nom} ${f.prenom}`),
-                            h('p', { className: 'text-3xl font-black text-green-600 mb-6' }, `${getTotalWeight(f).toFixed(3)} kg`),
-                            h('div', { className: 'flex gap-2' },
-                                h('input', { id:'w', type:'number', step:'0.001', placeholder:'Poids (kg)', className: 'border p-3 flex-1 rounded' }),
-                                h('button', { 
-                                    onClick: () => { addWeight(num, 'concours', document.getElementById('w').value, 1); document.getElementById('w').value = ''; },
-                                    className: 'bg-green-600 text-white px-6 font-bold rounded' 
-                                }, 'AJOUTER')
-                            )
-                        ) : h('p', { className: 'italic text-gray-500' }, 'Poste libre')
-                    )
+            const PostePage = ({ posteNum }) => {
+                const fisherman = fishermen.find(f => f.poste === posteNum);
+                const [weight, setWeight] = useState('');
+                const [count, setCount] = useState('1');
+                const [period, setPeriod] = useState('matin');
+
+                if (!fisherman) return (
+                    <div className="p-8 text-center">
+                        <button onClick={() => setCurrentPage('index')} className="mb-4">Retour</button>
+                        <p>Aucun pêcheur au Poste {posteNum}.</p>
+                    </div>
                 );
-            }
 
-            // PARAMÈTRES (PLUS DE GESTION UTILISATEURS COMME DEMANDÉ)
-            if (currentPage === 'settings') return h('div', { className: 'p-4 max-w-xl mx-auto' },
-                h('button', { onClick: () => setCurrentPage('index'), className: 'mb-4 text-blue-600' }, h(ArrowLeft)),
-                h('div', { className: 'bg-white p-6 rounded-xl shadow-lg' },
-                    h('h2', { className: 'text-xl font-bold mb-4' }, 'Configuration'),
-                    h('label', { className: 'block mb-1 text-sm font-bold' }, 'Titre du concours'),
-                    h('input', { 
-                        className: 'w-full border p-3 mb-4 rounded', 
-                        value: contestInfo.title, 
-                        onChange: e => setContestInfo({...contestInfo, title: e.target.value}) 
-                    }),
-                    h('label', { className: 'block mb-1 text-sm font-bold' }, 'Date'),
-                    h('input', { 
-                        className: 'w-full border p-3 mb-6 rounded', 
-                        value: contestInfo.date, 
-                        onChange: e => setContestInfo({...contestInfo, date: e.target.value}) 
-                    }),
-                    h('button', { 
-                        onClick: () => { updateConfig(contestInfo); setCurrentPage('index'); },
-                        className: 'w-full bg-green-600 text-white font-bold py-3 rounded' 
-                    }, 'SAUVEGARDER SUR FIREBASE')
-                )
-            );
+                return (
+                    <div className="min-h-screen p-4">
+                        <button onClick={() => setCurrentPage('index')} className="mb-4 flex items-center text-blue-600"><Icon name="arrow-left" size={20} className="mr-2" /> Retour</button>
+                        <div className="bg-white p-6 rounded-lg shadow">
+                            <h1 className="text-2xl font-bold mb-4 text-blue-900">Poste {posteNum} : {fisherman.nom}</h1>
+                            <div className="bg-yellow-50 p-4 rounded mb-6 text-center">
+                                <div className="text-4xl font-black text-green-600">{getTotalWeight(fisherman).toFixed(3)} kg</div>
+                                <div className="text-gray-600">{getTotalFishCount(fisherman)} poissons</div>
+                            </div>
+                            <div className="flex gap-2 mb-6">
+                                <select value={period} onChange={e => setPeriod(e.target.value)} className="border p-2 rounded">
+                                    <option value="matin">Matin</option>
+                                    <option value="apres-midi">A-M</option>
+                                </select>
+                                <input type="number" step="0.001" placeholder="Poids" value={weight} onChange={e => setWeight(e.target.value)} className="border p-2 rounded flex-1" />
+                                <button onClick={() => { addWeight(posteNum, period, weight, count); setWeight(''); }} className="bg-green-600 text-white px-4 rounded font-bold">OK</button>
+                            </div>
+                            <div className="space-y-2">
+                                {fisherman.weights && fisherman.weights.map((w, i) => (
+                                    <div key={i} className="flex justify-between border-b py-2 italic text-sm">
+                                        <span>{w.period} : {w.weight.toFixed(3)}kg</span>
+                                        <button onClick={() => deleteWeight(posteNum, i)} className="text-red-400">Suppr.</button>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    </div>
+                );
+            };
 
-            return null;
-        }
+            const ResultatsPage = () => {
+                const sorted = [...fishermen].sort((a, b) => getTotalWeight(b) - getTotalWeight(a));
+                return (
+                    <div className="min-h-screen p-4">
+                        <button onClick={() => setCurrentPage('index')} className="mb-4 flex items-center text-blue-600"><Icon name="arrow-left" size={20} className="mr-2" /> Retour</button>
+                        <h1 className="text-2xl font-bold mb-6 text-center">CLASSEMENT LIVE</h1>
+                        <div className="space-y-2">
+                            {sorted.map((f, i) => (
+                                <div key={i} className="bg-white p-4 rounded-lg shadow flex justify-between items-center border-l-4 border-yellow-500">
+                                    <div><span className="font-bold">#{i+1}</span> {f.nom} (P{f.poste})</div>
+                                    <div className="font-bold text-green-600">{getTotalWeight(f).toFixed(3)} kg</div>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                );
+            };
 
-        ReactDOM.render(h(FishingContestApp), document.getElementById('root'));
+            const SettingsPage = () => {
+                const [t, setT] = useState(contestInfo.title);
+                const [d, setD] = useState(contestInfo.date);
+                return (
+                    <div className="p-4">
+                        <button onClick={() => setCurrentPage('index')} className="mb-4 flex items-center text-blue-600"><Icon name="arrow-left" size={20} className="mr-2" /> Retour</button>
+                        <div className="bg-white p-6 rounded shadow">
+                            <h2 className="text-xl font-bold mb-4">Paramètres</h2>
+                            <input className="border p-2 w-full mb-2" value={t} onChange={e => setT(e.target.value)} />
+                            <input className="border p-2 w-full mb-4" value={d} onChange={e => setD(e.target.value)} />
+                            <button onClick={() => { saveContestInfo({title:t, date:d}); setCurrentPage('index'); }} className="bg-green-600 text-white p-3 w-full rounded font-bold">Enregistrer</button>
+                        </div>
+                    </div>
+                );
+            };
+
+            if (currentPage === 'index') return <IndexPage />;
+            if (currentPage === 'settings') return <SettingsPage />;
+            if (currentPage === 'inscription') return <InscriptionPage />;
+            if (currentPage === 'resultats') return <ResultatsPage />;
+            if (currentPage.startsWith('poste')) return <PostePage posteNum={currentPage.replace('poste', '')} />;
+            return <IndexPage />;
+        };
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<FishingContestApp />);
     </script>
 </body>
 </html>
