@@ -1,0 +1,926 @@
+
+
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="theme-color" content="#1e40af">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <title>Concours de Pêche</title>
+    <script crossorigin src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+    <script crossorigin src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: system-ui, -apple-system, sans-serif; }
+        html, body, #root { height: 100%; }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+    <script>
+        const { useState, useEffect, createElement: h } = React;
+        
+        // Storage utilisant localStorage pour synchronisation multi-utilisateurs
+        window.storage = {
+            async get(key) {
+                const value = localStorage.getItem(key);
+                return value ? { key, value } : null;
+            },
+            async set(key, value) {
+                localStorage.setItem(key, value);
+                window.dispatchEvent(new CustomEvent('storage-update', { detail: { key } }));
+                return { key, value };
+            },
+            async delete(key) {
+                localStorage.removeItem(key);
+                return { key, deleted: true };
+            }
+        };
+
+        // Composants d'icônes SVG
+        const ArrowLeft = () => h('svg', { width: 20, height: 20, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 2 },
+            h('line', { x1: 19, y1: 12, x2: 5, y2: 12 }),
+            h('polyline', { points: '12 19 5 12 12 5' })
+        );
+
+        const Users = () => h('svg', { width: 32, height: 32, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 2 },
+            h('path', { d: 'M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2' }),
+            h('circle', { cx: 9, cy: 7, r: 4 }),
+            h('path', { d: 'M23 21v-2a4 4 0 0 0-3-3.87' }),
+            h('path', { d: 'M16 3.13a4 4 0 0 1 0 7.75' })
+        );
+
+        const Trophy = () => h('svg', { width: 32, height: 32, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 2 },
+            h('path', { d: 'M6 9H4.5a2.5 2.5 0 0 1 0-5H6' }),
+            h('path', { d: 'M18 9h1.5a2.5 2.5 0 0 0 0-5H18' }),
+            h('path', { d: 'M4 22h16' }),
+            h('path', { d: 'M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22' }),
+            h('path', { d: 'M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22' }),
+            h('path', { d: 'M18 2H6v7a6 6 0 0 0 12 0V2Z' })
+        );
+
+        const Fish = () => h('svg', { width: 64, height: 64, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 2 },
+            h('path', { d: 'M6.5 12c.94-3.46 4.94-6 8.5-6 3.56 0 6.06 2.54 7 6-.94 3.47-3.44 6-7 6s-7.56-2.53-8.5-6Z' }),
+            h('path', { d: 'M18 12v.5' }),
+            h('path', { d: 'M16 17.93a9.77 9.77 0 0 1 0-11.86' }),
+            h('path', { d: 'M7 10.67C7 8 5.58 5.97 2.73 5.5c-1 1.5-1 5 .23 6.5-1.24 1.5-1.24 5-.23 6.5C5.58 18.03 7 16 7 13.33' }),
+            h('path', { d: 'M10.46 7.26C10.2 5.88 9.17 4.24 8 3h5.8a2 2 0 0 1 1.98 1.67l.23 1.4' }),
+            h('path', { d: 'm16.01 17.93-.23 1.4A2 2 0 0 1 13.8 21H9.5a5.96 5.96 0 0 0 1.49-3.98' })
+        );
+
+        const Settings = () => h('svg', { width: 24, height: 24, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 2 },
+            h('path', { d: 'M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z' }),
+            h('circle', { cx: 12, cy: 12, r: 3 })
+        );
+
+        const LogOut = () => h('svg', { width: 24, height: 24, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 2 },
+            h('path', { d: 'M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4' }),
+            h('polyline', { points: '16 17 21 12 16 7' }),
+            h('line', { x1: 21, y1: 12, x2: 9, y2: 12 })
+        );
+
+        // APPLICATION PRINCIPALE
+        function FishingContestApp() {
+            const [currentPage, setCurrentPage] = useState('login');
+            const [fishermen, setFishermen] = useState([]);
+            const [isLoaded, setIsLoaded] = useState(false);
+            const [contestInfo, setContestInfo] = useState({ title: 'Concours de Pêche 2x4', date: '21 avril 2025' });
+            const [currentUser, setCurrentUser] = useState(null);
+            const [users, setUsers] = useState([{ username: 'admin', password: '1982', role: 'admin' }]);
+
+            // Synchronisation en temps réel
+            useEffect(() => {
+                const handleStorageChange = () => loadData();
+                window.addEventListener('storage', handleStorageChange);
+                window.addEventListener('storage-update', handleStorageChange);
+                return () => {
+                    window.removeEventListener('storage', handleStorageChange);
+                    window.removeEventListener('storage-update', handleStorageChange);
+                };
+            }, []);
+
+            useEffect(() => {
+                loadData();
+                loadContestInfo();
+                loadUsers();
+            }, []);
+
+            useEffect(() => {
+                if (isLoaded && fishermen.length >= 0) {
+                    const timer = setTimeout(() => saveData(), 1000);
+                    return () => clearTimeout(timer);
+                }
+            }, [fishermen, isLoaded]);
+
+            // Fonctions de chargement/sauvegarde
+            const loadData = async () => {
+                try {
+                    const result = await window.storage.get('fishermen-list');
+                    if (result && result.value) {
+                        setFishermen(JSON.parse(result.value));
+                    }
+                } catch (error) {
+                    console.log('Première utilisation');
+                } finally {
+                    setIsLoaded(true);
+                }
+            };
+
+            const saveData = async () => {
+                if (fishermen.length > 0) {
+                    try {
+                        await window.storage.set('fishermen-list', JSON.stringify(fishermen));
+                    } catch (error) {
+                        console.error('Erreur sauvegarde:', error);
+                    }
+                }
+            };
+
+            const loadContestInfo = async () => {
+                try {
+                    const result = await window.storage.get('contest-info');
+                    if (result && result.value) {
+                        setContestInfo(JSON.parse(result.value));
+                    }
+                } catch (error) {
+                    console.log('Infos par défaut');
+                }
+            };
+
+            const saveContestInfo = async (info) => {
+                setContestInfo(info);
+                try {
+                    await window.storage.set('contest-info', JSON.stringify(info));
+                } catch (error) {
+                    console.error('Erreur sauvegarde infos:', error);
+                }
+            };
+
+            const loadUsers = async () => {
+                try {
+                    const result = await window.storage.get('users-list');
+                    if (result && result.value) {
+                        const loadedUsers = JSON.parse(result.value);
+                        const adminUser = loadedUsers.find(u => u.username === 'admin');
+                        if (!adminUser || adminUser.password !== '1982') {
+                            const defaultUsers = [{ username: 'admin', password: '1982', role: 'admin' }];
+                            setUsers(defaultUsers);
+                            await window.storage.set('users-list', JSON.stringify(defaultUsers));
+                        } else {
+                            setUsers(loadedUsers);
+                        }
+                    } else {
+                        const defaultUsers = [{ username: 'admin', password: '1982', role: 'admin' }];
+                        setUsers(defaultUsers);
+                        await window.storage.set('users-list', JSON.stringify(defaultUsers));
+                    }
+                } catch (error) {
+                    const defaultUsers = [{ username: 'admin', password: '1982', role: 'admin' }];
+                    setUsers(defaultUsers);
+                }
+            };
+
+            const saveUsers = async (usersList) => {
+                setUsers(usersList);
+                try {
+                    await window.storage.set('users-list', JSON.stringify(usersList));
+                } catch (error) {
+                    console.error('Erreur sauvegarde utilisateurs:', error);
+                }
+            };
+// Fonctions de gestion des utilisateurs
+            const login = (username, password) => {
+                const user = users.find(u => u.username === username && u.password === password);
+                if (user) {
+                    setCurrentUser(user);
+                    setCurrentPage('index');
+                    return true;
+                }
+                return false;
+            };
+
+            const logout = () => {
+                setCurrentUser(null);
+                setCurrentPage('login');
+            };
+
+            const addUser = (username, password, role) => {
+                const exists = users.find(u => u.username === username);
+                if (exists) return false;
+                const newUsers = [...users, { username, password, role }];
+                saveUsers(newUsers);
+                return true;
+            };
+
+            const deleteUser = (username) => {
+                if (username === 'admin') {
+                    alert('Impossible de supprimer l\'administrateur principal !');
+                    return false;
+                }
+                const newUsers = users.filter(u => u.username !== username);
+                saveUsers(newUsers);
+                return true;
+            };
+
+            // Fonctions de gestion des pêcheurs
+            const addFisherman = (nom, prenom, poste) => {
+                if (nom && prenom) {
+                    if (poste) {
+                        const exists = fishermen.find(f => f.poste === poste);
+                        if (exists) {
+                            alert('Ce poste est déjà occupé !');
+                            return false;
+                        }
+                    }
+                    setFishermen([...fishermen, { nom, prenom, poste: poste || null, weights: [] }]);
+                    return true;
+                }
+                return false;
+            };
+
+            const assignPoste = (fishermanIndex, poste) => {
+                const exists = fishermen.find(f => f.poste === poste);
+                if (exists) {
+                    alert('Ce poste est déjà occupé !');
+                    return false;
+                }
+                setFishermen(fishermen.map((f, idx) => idx === fishermanIndex ? { ...f, poste } : f));
+                return true;
+            };
+
+            const deleteFisherman = (fishermanIndex) => {
+                if (window.confirm('Supprimer ce pêcheur ?')) {
+                    setFishermen(fishermen.filter((_, idx) => idx !== fishermanIndex));
+                }
+            };
+
+            const addWeight = (poste, period, weight, fishCount) => {
+                setFishermen(fishermen.map(f => {
+                    if (f.poste === poste) {
+                        const weights = [...(f.weights || [])];
+                        weights.push({
+                            period,
+                            weight: parseFloat(weight) || 0,
+                            fishCount: parseInt(fishCount) || 1,
+                            time: new Date().toISOString()
+                        });
+                        return { ...f, weights };
+                    }
+                    return f;
+                }));
+            };
+
+            const deleteWeight = (poste, index) => {
+                setFishermen(fishermen.map(f => {
+                    if (f.poste === poste) {
+                        const weights = [...(f.weights || [])];
+                        weights.splice(index, 1);
+                        return { ...f, weights };
+                    }
+                    return f;
+                }));
+            };
+
+            // Fonctions de calcul
+            const getTotalWeight = (fisherman) => {
+                if (!fisherman.weights) return 0;
+                return fisherman.weights.reduce((sum, w) => sum + w.weight, 0);
+            };
+
+            const getWeightByPeriod = (fisherman, period) => {
+                if (!fisherman.weights) return 0;
+                return fisherman.weights.filter(w => w.period === period).reduce((sum, w) => sum + w.weight, 0);
+            };
+
+            const getTotalFishCount = (fisherman) => {
+                if (!fisherman.weights) return 0;
+                return fisherman.weights.reduce((sum, w) => sum + (w.fishCount || 0), 0);
+            };
+
+            // PAGE LOGIN
+            function LoginPage() {
+                const [username, setUsername] = useState('');
+                const [password, setPassword] = useState('');
+                const [error, setError] = useState('');
+
+                const handleLogin = () => {
+                    if (login(username, password)) {
+                        setError('');
+                    } else {
+                        setError('Nom d\'utilisateur ou mot de passe incorrect');
+                    }
+                };
+
+                return h('div', { className: 'min-h-screen bg-gradient-to-br from-blue-500 to-blue-800 flex items-center justify-center p-4' },
+                    h('div', { className: 'bg-white rounded-lg shadow-2xl p-8 w-full max-w-md' },
+                        h('div', { className: 'text-center mb-8' },
+                            h(Fish, { className: 'mx-auto mb-4 text-blue-600' }),
+                            h('h1', { className: 'text-3xl font-bold text-blue-900 mb-2' }, 'Concours de Pêche'),
+                            h('p', { className: 'text-gray-600' }, 'Connectez-vous pour continuer')
+                        ),
+                        h('div', { className: 'space-y-4' },
+                            h('div', null,
+                                h('label', { className: 'block text-sm font-semibold mb-2 text-gray-700' }, 'Nom d\'utilisateur'),
+                                h('input', {
+                                    type: 'text',
+                                    value: username,
+                                    onChange: (e) => setUsername(e.target.value),
+                                    onKeyPress: (e) => e.key === 'Enter' && handleLogin(),
+                                    className: 'w-full border-2 border-gray-300 rounded-lg px-4 py-3 focus:border-blue-500 focus:outline-none',
+                                    placeholder: 'Entrez votre nom d\'utilisateur'
+                                })
+                            ),
+                            h('div', null,
+                                h('label', { className: 'block text-sm font-semibold mb-2 text-gray-700' }, 'Mot de passe'),
+                                h('input', {
+                                    type: 'password',
+                                    value: password,
+                                    onChange: (e) => setPassword(e.target.value),
+                                    onKeyPress: (e) => e.key === 'Enter' && handleLogin(),
+                                    className: 'w-full border-2 border-gray-300 rounded-lg px-4 py-3 focus:border-blue-500 focus:outline-none',
+                                    placeholder: 'Entrez votre mot de passe'
+                                })
+                            ),
+                            error && h('div', { className: 'bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded' }, error),
+                            h('button', {
+                                onClick: handleLogin,
+                                className: 'w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-lg text-lg transition'
+                            }, 'Se connecter')
+                        )
+                    )
+                );
+            }
+
+            // PAGE INDEX
+            function IndexPage() {
+                return h('div', { className: 'min-h-screen bg-gray-100 p-4' },
+                    h('div', { className: 'flex justify-between items-center mb-4' },
+                        h('div', { className: 'bg-blue-600 text-white px-4 py-2 rounded-lg font-semibold' },
+                            '👤 ', currentUser.username, ' (', currentUser.role === 'admin' ? 'Administrateur' : 'Utilisateur', ')'
+                        ),
+                        h('div', { className: 'flex gap-2' },
+                            currentUser.role === 'admin' && h('button', {
+                                onClick: () => setCurrentPage('settings'),
+                                className: 'bg-gray-600 hover:bg-gray-700 text-white p-3 rounded-full shadow-lg',
+                                title: 'Paramètres'
+                            }, h(Settings)),
+                            h('button', {
+                                onClick: logout,
+                                className: 'bg-red-600 hover:bg-red-700 text-white p-3 rounded-full shadow-lg',
+                                title: 'Déconnexion'
+                            }, h(LogOut))
+                        )
+                    ),
+                    h('h1', { className: 'text-3xl font-bold text-center mb-2 text-blue-900' }, contestInfo.title),
+                    h('h2', { className: 'text-xl text-center mb-8 text-gray-700' }, contestInfo.date),
+                    h('div', { className: 'max-w-2xl mx-auto grid grid-cols-2 gap-4' },
+                        currentUser.role === 'admin' && h('button', {
+                            onClick: () => setCurrentPage('inscription'),
+                            className: 'bg-orange-500 hover:bg-orange-600 text-white font-bold py-6 px-4 rounded-lg shadow-lg transition'
+                        }, h(Users, { className: 'mx-auto mb-2' }), 'Inscription + poste'),
+                        h('button', {
+                            onClick: () => setCurrentPage('resultats'),
+                            className: 'bg-green-500 hover:bg-green-600 text-white font-bold py-6 px-4 rounded-lg shadow-lg transition'
+                        }, h(Trophy, { className: 'mx-auto mb-2' }), 'Résultats'),
+                        ...[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14].map(num =>
+                            h('button', {
+                                key: num,
+                                onClick: () => setCurrentPage(`poste${num}`),
+                                className: 'bg-blue-200 hover:bg-blue-300 text-blue-900 font-semibold py-4 px-4 rounded-lg shadow transition'
+                            }, `Poste ${num}`)
+                        )
+                    )
+                );
+            }
+
+            // PAGE INSCRIPTION
+            function InscriptionPage() {
+                const [newFisherman, setNewFisherman] = useState({ nom: '', prenom: '', poste: '' });
+                const withPoste = fishermen.filter(f => f.poste).sort((a, b) => parseInt(a.poste) - parseInt(b.poste));
+                const withoutPoste = fishermen.filter(f => !f.poste);
+
+                const handleAdd = () => {
+                    if (addFisherman(newFisherman.nom, newFisherman.prenom, newFisherman.poste)) {
+                        setNewFisherman({ nom: '', prenom: '', poste: '' });
+                    }
+                };
+
+                return h('div', { className: 'min-h-screen bg-gray-100 p-4' },
+                    h('button', {
+                        onClick: () => setCurrentPage('index'),
+                        className: 'mb-4 flex items-center text-blue-600 hover:text-blue-800'
+                    }, h(ArrowLeft, { className: 'mr-2' }), 'Retour Index'),
+                    h('h1', { className: 'text-2xl font-bold mb-6 text-blue-900' }, 'Inscription des Pêcheurs'),
+                    currentUser.role === 'admin' && h('div', { className: 'bg-white p-6 rounded-lg shadow-lg mb-6' },
+                        h('h2', { className: 'text-xl font-semibold mb-4' }, 'Ajouter un pêcheur'),
+                        h('div', { className: 'grid grid-cols-1 md:grid-cols-4 gap-4 mb-4' },
+                            h('input', {
+                                type: 'text',
+                                placeholder: 'Nom',
+                                value: newFisherman.nom,
+                                onChange: (e) => setNewFisherman({ ...newFisherman, nom: e.target.value }),
+                                className: 'border-2 border-gray-300 rounded px-4 py-2'
+                            }),
+                            h('input', {
+                                type: 'text',
+                                placeholder: 'Prénom',
+                                value: newFisherman.prenom,
+                                onChange: (e) => setNewFisherman({ ...newFisherman, prenom: e.target.value }),
+                                className: 'border-2 border-gray-300 rounded px-4 py-2'
+                            }),
+                            h('select', {
+                                value: newFisherman.poste,
+                                onChange: (e) => setNewFisherman({ ...newFisherman, poste: e.target.value }),
+                                className: 'border-2 border-gray-300 rounded px-4 py-2'
+                            },
+                                h('option', { value: '' }, 'Poste (optionnel)'),
+                                [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14].map(num => {
+                                    const occupied = fishermen.find(f => f.poste === num.toString());
+                                    return h('option', { key: num, value: num, disabled: occupied },
+                                        `Poste ${num}${occupied ? ' (occupé)' : ''}`
+                                    );
+                                })
+                            ),
+                            h('button', {
+                                onClick: handleAdd,
+                                className: 'bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-6 rounded'
+                            }, 'Ajouter')
+                        ),
+                        h('p', { className: 'text-sm text-gray-600' }, '💡 Astuce : Vous pouvez ajouter un pêcheur sans poste et l\'assigner plus tard')
+                    ),
+                    withoutPoste.length > 0 && h('div', { className: 'bg-orange-50 border-2 border-orange-300 rounded-lg p-6 mb-6' },
+                        h('h2', { className: 'text-xl font-semibold mb-4 text-orange-800' }, '⚠️ Pêcheurs en attente d\'assignation'),
+                        h('div', { className: 'space-y-3' },
+                            withoutPoste.map((f, idx) => {
+                                const actualIndex = fishermen.findIndex(fish => fish === f);
+                                return h('div', { key: idx, className: 'bg-white p-4 rounded shadow flex items-center justify-between' },
+                                    h('div', { className: 'font-semibold' }, f.nom, ' ', f.prenom),
+                                    currentUser.role === 'admin' && h('div', { className: 'flex gap-2' },
+                                        h('select', {
+                                            onChange: (e) => {
+                                                if (e.target.value) {
+                                                    assignPoste(actualIndex, e.target.value);
+                                                }
+                                            },
+                                            className: 'border-2 border-gray-300 rounded px-3 py-1',
+                                            defaultValue: ''
+                                        },
+                                            h('option', { value: '' }, 'Assigner un poste'),
+                                            [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14].map(num => {
+                                                const occupied = fishermen.find(fish => fish.poste === num.toString());
+                                                return h('option', { key: num, value: num, disabled: occupied },
+                                                    `Poste ${num}${occupied ? ' (occupé)' : ''}`
+                                                );
+                                            })
+                                        ),
+                                        h('button', {
+                                            onClick: () => deleteFisherman(actualIndex),
+                                            className: 'bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded'
+                                        }, 'Supprimer')
+                                    )
+                                );
+                            })
+                        )
+                    ),
+                    h('div', { className: 'bg-white rounded-lg shadow-lg overflow-hidden' },
+                        h('div', { className: 'bg-green-600 text-white px-4 py-3' },
+                            h('h2', { className: 'text-xl font-semibold' }, '✅ Pêcheurs avec poste assigné (', withPoste.length, '/14)')
+                        ),
+                        h('table', { className: 'w-full' },
+                            h('thead', { className: 'bg-yellow-500' },
+                                h('tr', null,
+                                    h('th', { className: 'px-4 py-3 text-left font-bold' }, 'Poste'),
+                                    h('th', { className: 'px-4 py-3 text-left font-bold' }, 'Nom'),
+                                    h('th', { className: 'px-4 py-3 text-left font-bold' }, 'Prénom'),
+                                    h('th', { className: 'px-4 py-3 text-left font-bold' }, 'Actions')
+                                )
+                            ),
+                            h('tbody', null,
+                                withPoste.map((f, idx) => {
+                                    const actualIndex = fishermen.findIndex(fish => fish === f);
+                                    return h('tr', { key: idx, className: idx % 2 === 0 ? 'bg-green-100' : 'bg-white' },
+                                        h('td', { className: 'px-4 py-3 font-semibold' }, 'Poste ', f.poste),
+                                        h('td', { className: 'px-4 py-3' }, f.nom),
+                                        h('td', { className: 'px-4 py-3' }, f.prenom),
+                                        h('td', { className: 'px-4 py-3' },
+                                            currentUser.role === 'admin' && h('button', {
+                                                onClick: () => deleteFisherman(actualIndex),
+                                                className: 'text-red-600 hover:text-red-800 font-semibold'
+                                            }, 'Supprimer')
+                                        )
+                                    );
+                                })
+                            )
+                        )
+                    )
+                );
+            }
+// PAGE POSTE
+            function PostePage({ posteNum }) {
+                const fisherman = fishermen.find(f => f.poste === posteNum);
+                const [newWeight, setNewWeight] = useState('');
+                const [fishCount, setFishCount] = useState('1');
+                const [period, setPeriod] = useState('matin');
+
+                useEffect(() => {
+                    const loadPeriod = async () => {
+                        try {
+                            const result = await window.storage.get(`period-poste-${posteNum}`);
+                            if (result && result.value) {
+                                setPeriod(result.value);
+                            }
+                        } catch (error) {
+                            console.log('Période par défaut: matin');
+                        }
+                    };
+                    loadPeriod();
+                }, [posteNum]);
+
+                const handlePeriodChange = async (newPeriod) => {
+                    setPeriod(newPeriod);
+                    try {
+                        await window.storage.set(`period-poste-${posteNum}`, newPeriod);
+                    } catch (error) {
+                        console.error('Erreur sauvegarde période:', error);
+                    }
+                };
+
+                const handleAddWeight = () => {
+                    if (newWeight && fisherman) {
+                        addWeight(posteNum, period, newWeight, fishCount);
+                        setNewWeight('');
+                        setFishCount('1');
+                    }
+                };
+
+                return h('div', { className: 'min-h-screen bg-gray-100 p-4' },
+                    h('button', {
+                        onClick: () => setCurrentPage('index'),
+                        className: 'mb-4 flex items-center text-blue-600 hover:text-blue-800'
+                    }, h(ArrowLeft, { className: 'mr-2' }), 'Retour Index'),
+                    h('div', { className: 'bg-white rounded-lg shadow-lg p-6' },
+                        h('h1', { className: 'text-2xl font-bold mb-4' }, 'Poste ', posteNum),
+                        fisherman ? h('div', null,
+                            h('div', { className: 'bg-yellow-100 p-4 rounded mb-6' },
+                                h('p', { className: 'text-lg' },
+                                    h('span', { className: 'font-bold' }, 'Pêcheur:'), ' ',
+                                    fisherman.nom, ' ', fisherman.prenom
+                                ),
+                                h('p', { className: 'text-lg' },
+                                    h('span', { className: 'font-bold' }, 'Poids Matin:'), ' ',
+                                    getWeightByPeriod(fisherman, 'matin').toFixed(3), ' kg'
+                                ),
+                                h('p', { className: 'text-lg' },
+                                    h('span', { className: 'font-bold' }, 'Poids Après-midi:'), ' ',
+                                    getWeightByPeriod(fisherman, 'apres-midi').toFixed(3), ' kg'
+                                ),
+                                h('p', { className: 'text-xl font-bold text-green-600 mt-2' },
+                                    'Total: ', getTotalWeight(fisherman).toFixed(3), ' kg'
+                                ),
+                                h('p', { className: 'text-lg mt-2' },
+                                    h('span', { className: 'font-bold' }, 'Nombre de poissons:'), ' ',
+                                    getTotalFishCount(fisherman)
+                                )
+                            ),
+                            h('div', { className: 'mb-6' },
+                                h('h2', { className: 'text-xl font-semibold mb-4' }, 'Ajouter une pesée'),
+                                h('div', { className: 'grid grid-cols-4 gap-4' },
+                                    h('select', {
+                                        value: period,
+                                        onChange: (e) => handlePeriodChange(e.target.value),
+                                        className: 'border-2 border-gray-300 rounded px-4 py-2'
+                                    },
+                                        h('option', { value: 'matin' }, 'Matin'),
+                                        h('option', { value: 'apres-midi' }, 'Après-midi')
+                                    ),
+                                    h('input', {
+                                        type: 'number',
+                                        step: '0.001',
+                                        placeholder: 'Poids (kg)',
+                                        value: newWeight,
+                                        onChange: (e) => setNewWeight(e.target.value),
+                                        className: 'border-2 border-gray-300 rounded px-4 py-2'
+                                    }),
+                                    h('input', {
+                                        type: 'number',
+                                        min: '1',
+                                        placeholder: 'Nb poissons',
+                                        value: fishCount,
+                                        onChange: (e) => setFishCount(e.target.value),
+                                        className: 'border-2 border-gray-300 rounded px-4 py-2'
+                                    }),
+                                    h('button', {
+                                        onClick: handleAddWeight,
+                                        className: 'bg-green-600 hover:bg-green-700 text-white font-bold rounded'
+                                    }, 'Ajouter')
+                                )
+                            ),
+                            h('div', null,
+                                h('h2', { className: 'text-xl font-semibold mb-4' }, 'Historique des pesées'),
+                                h('table', { className: 'w-full bg-white border' },
+                                    h('thead', { className: 'bg-yellow-500' },
+                                        h('tr', null,
+                                            h('th', { className: 'px-4 py-2 text-left' }, 'Période'),
+                                            h('th', { className: 'px-4 py-2 text-left' }, 'Poids'),
+                                            h('th', { className: 'px-4 py-2 text-left' }, 'Nb poissons'),
+                                            h('th', { className: 'px-4 py-2 text-left' }, 'Action')
+                                        )
+                                    ),
+                                    h('tbody', null,
+                                        fisherman.weights && fisherman.weights.map((w, idx) =>
+                                            h('tr', { key: idx, className: idx % 2 === 0 ? 'bg-gray-50' : 'bg-white' },
+                                                h('td', { className: 'px-4 py-2 capitalize' }, w.period),
+                                                h('td', { className: 'px-4 py-2' }, w.weight.toFixed(3), ' kg'),
+                                                h('td', { className: 'px-4 py-2' }, w.fishCount || 1),
+                                                h('td', { className: 'px-4 py-2' },
+                                                    h('button', {
+                                                        onClick: () => deleteWeight(posteNum, idx),
+                                                        className: 'text-red-600 hover:text-red-800'
+                                                    }, 'Supprimer')
+                                                )
+                                            )
+                                        )
+                                    )
+                                )
+                            )
+                        ) : h('div', { className: 'text-center py-12' },
+                            h('p', { className: 'text-xl text-gray-600' }, 'Aucun pêcheur inscrit à ce poste'),
+                            h('button', {
+                                onClick: () => setCurrentPage('inscription'),
+                                className: 'mt-4 bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-6 rounded'
+                            }, 'Aller aux inscriptions')
+                        )
+                    )
+                );
+            }
+
+            // PAGE RÉSULTATS
+            function ResultatsPage() {
+                const sortedByTotal = [...fishermen].sort((a, b) => getTotalWeight(b) - getTotalWeight(a));
+
+                // Trouver le plus gros poisson (seulement pesées individuelles)
+                let biggestFish = { weight: 0, fisherman: null };
+                fishermen.forEach(f => {
+                    if (f.weights && f.weights.length > 0) {
+                        const individualWeights = f.weights.filter(w => (w.fishCount || 1) === 1);
+                        if (individualWeights.length > 0) {
+                            const maxWeight = Math.max(...individualWeights.map(w => w.weight));
+                            if (maxWeight > biggestFish.weight) {
+                                biggestFish = { weight: maxWeight, fisherman: f };
+                            }
+                        }
+                    }
+                });
+
+                return h('div', { className: 'min-h-screen bg-gray-100 p-4' },
+                    h('button', {
+                        onClick: () => setCurrentPage('index'),
+                        className: 'mb-4 flex items-center text-blue-600 hover:text-blue-800'
+                    }, h(ArrowLeft, { className: 'mr-2' }), 'Retour Index'),
+                    h('h1', { className: 'text-2xl font-bold mb-6 text-blue-900' }, 'Classement Final'),
+                    biggestFish.fisherman && h('div', { className: 'bg-gradient-to-r from-blue-500 to-blue-700 text-white rounded-lg shadow-lg p-6 mb-6' },
+                        h('div', { className: 'flex items-center justify-between' },
+                            h('div', null,
+                                h('h2', { className: 'text-2xl font-bold mb-2' }, '🐟 Plus Gros Poisson'),
+                                h('p', { className: 'text-3xl font-bold' }, biggestFish.weight.toFixed(3), ' kg')
+                            ),
+                            h('div', { className: 'text-right' },
+                                h('p', { className: 'text-lg font-semibold' }, biggestFish.fisherman.nom, ' ', biggestFish.fisherman.prenom),
+                                h('p', { className: 'text-sm opacity-90' }, 'Poste ', biggestFish.fisherman.poste)
+                            )
+                        )
+                    ),
+                    h('div', { className: 'bg-gradient-to-r from-green-500 to-green-700 text-white rounded-lg shadow-lg p-6 mb-6' },
+                        h('div', { className: 'text-center' },
+                            h('h2', { className: 'text-2xl font-bold mb-3' }, '🎣 Total du Concours'),
+                            h('div', { className: 'grid grid-cols-2 gap-6' },
+                                h('div', null,
+                                    h('p', { className: 'text-lg mb-1' }, 'Nombre de poissons'),
+                                    h('p', { className: 'text-4xl font-bold' },
+                                        fishermen.reduce((total, f) => total + getTotalFishCount(f), 0)
+                                    )
+                                ),
+                                h('div', null,
+                                    h('p', { className: 'text-lg mb-1' }, 'Poids total'),
+                                    h('p', { className: 'text-4xl font-bold' },
+                                        fishermen.reduce((total, f) => total + getTotalWeight(f), 0).toFixed(3), ' kg'
+                                    )
+                                )
+                            )
+                        )
+                    ),
+                    h('div', { className: 'bg-white rounded-lg shadow-lg overflow-hidden' },
+                        h('table', { className: 'w-full' },
+                            h('thead', { className: 'bg-yellow-500' },
+                                h('tr', null,
+                                    h('th', { className: 'px-4 py-3 text-left font-bold' }, 'Position'),
+                                    h('th', { className: 'px-4 py-3 text-left font-bold' }, 'Nom'),
+                                    h('th', { className: 'px-4 py-3 text-left font-bold' }, 'Prénom'),
+                                    h('th', { className: 'px-4 py-3 text-left font-bold' }, 'Poste'),
+                                    h('th', { className: 'px-4 py-3 text-left font-bold' }, 'Poids Matin'),
+                                    h('th', { className: 'px-4 py-3 text-left font-bold' }, 'Poids Après-midi'),
+                                    h('th', { className: 'px-4 py-3 text-left font-bold' }, 'Total'),
+                                    h('th', { className: 'px-4 py-3 text-left font-bold' }, 'Nb Poissons')
+                                )
+                            ),
+                            h('tbody', null,
+                                sortedByTotal.map((f, idx) =>
+                                    h('tr', {
+                                        key: idx,
+                                        className: idx === 0 ? 'bg-yellow-200' :
+                                            idx === 1 ? 'bg-gray-200' :
+                                                idx === 2 ? 'bg-orange-200' :
+                                                    idx % 2 === 0 ? 'bg-green-100' : 'bg-white'
+                                    },
+                                        h('td', { className: 'px-4 py-3 font-bold text-lg' },
+                                            idx === 0 ? '🥇' : idx === 1 ? '🥈' : idx === 2 ? '🥉' : idx + 1
+                                        ),
+                                        h('td', { className: 'px-4 py-3' }, f.nom),
+                                        h('td', { className: 'px-4 py-3' }, f.prenom),
+                                        h('td', { className: 'px-4 py-3' }, f.poste),
+                                        h('td', { className: 'px-4 py-3' }, getWeightByPeriod(f, 'matin').toFixed(3), ' kg'),
+                                        h('td', { className: 'px-4 py-3' }, getWeightByPeriod(f, 'apres-midi').toFixed(3), ' kg'),
+                                        h('td', { className: 'px-4 py-3 font-bold text-green-600' }, getTotalWeight(f).toFixed(3), ' kg'),
+                                        h('td', { className: 'px-4 py-3 font-semibold' }, getTotalFishCount(f))
+                                    )
+                                )
+                            )
+                        )
+                    )
+                );
+            }
+// PAGE PARAMÈTRES
+            function SettingsPage() {
+                const [tempInfo, setTempInfo] = useState(contestInfo);
+                const [activeTab, setActiveTab] = useState('contest');
+                const [newUser, setNewUser] = useState({ username: '', password: '', role: 'user' });
+
+                const handleSave = () => {
+                    saveContestInfo(tempInfo);
+                    setCurrentPage('index');
+                };
+
+                const handleAddUser = () => {
+                    if (newUser.username && newUser.password) {
+                        if (addUser(newUser.username, newUser.password, newUser.role)) {
+                            setNewUser({ username: '', password: '', role: 'user' });
+                            alert('Utilisateur ajouté avec succès !');
+                        } else {
+                            alert('Cet utilisateur existe déjà !');
+                        }
+                    }
+                };
+
+                return h('div', { className: 'min-h-screen bg-gray-100 p-4' },
+                    h('button', {
+                        onClick: () => setCurrentPage('index'),
+                        className: 'mb-4 flex items-center text-blue-600 hover:text-blue-800'
+                    }, h(ArrowLeft, { className: 'mr-2' }), 'Retour Index'),
+                    h('h1', { className: 'text-2xl font-bold mb-6 text-blue-900' }, '⚙️ Paramètres'),
+                    h('div', { className: 'mb-4 flex gap-2' },
+                        h('button', {
+                            onClick: () => setActiveTab('contest'),
+                            className: `px-6 py-2 rounded-lg font-semibold ${activeTab === 'contest' ? 'bg-blue-600 text-white' : 'bg-white text-gray-700'}`
+                        }, 'Concours'),
+                        h('button', {
+                            onClick: () => setActiveTab('users'),
+                            className: `px-6 py-2 rounded-lg font-semibold ${activeTab === 'users' ? 'bg-blue-600 text-white' : 'bg-white text-gray-700'}`
+                        }, 'Utilisateurs')
+                    ),
+                    activeTab === 'contest' && h('div', { className: 'bg-white p-6 rounded-lg shadow-lg max-w-2xl mx-auto' },
+                        h('div', { className: 'mb-6' },
+                            h('label', { className: 'block text-lg font-semibold mb-2' }, 'Titre du concours'),
+                            h('input', {
+                                type: 'text',
+                                value: tempInfo.title,
+                                onChange: (e) => setTempInfo({ ...tempInfo, title: e.target.value }),
+                                className: 'w-full border-2 border-gray-300 rounded px-4 py-3 text-lg',
+                                placeholder: 'Ex: Concours de Pêche 2x4'
+                            })
+                        ),
+                        h('div', { className: 'mb-6' },
+                            h('label', { className: 'block text-lg font-semibold mb-2' }, 'Date du concours'),
+                            h('input', {
+                                type: 'text',
+                                value: tempInfo.date,
+                                onChange: (e) => setTempInfo({ ...tempInfo, date: e.target.value }),
+                                className: 'w-full border-2 border-gray-300 rounded px-4 py-3 text-lg',
+                                placeholder: 'Ex: 21 avril 2025'
+                            })
+                        ),
+                        h('div', { className: 'flex gap-4' },
+                            h('button', {
+                                onClick: handleSave,
+                                className: 'flex-1 bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-6 rounded-lg text-lg'
+                            }, '💾 Enregistrer'),
+                            h('button', {
+                                onClick: () => setCurrentPage('index'),
+                                className: 'flex-1 bg-gray-400 hover:bg-gray-500 text-white font-bold py-3 px-6 rounded-lg text-lg'
+                            }, 'Annuler')
+                        )
+                    ),
+                    activeTab === 'users' && h('div', { className: 'bg-white p-6 rounded-lg shadow-lg max-w-2xl mx-auto' },
+                        h('h2', { className: 'text-xl font-semibold mb-4' }, 'Ajouter un utilisateur'),
+                        h('div', { className: 'grid grid-cols-1 md:grid-cols-4 gap-4 mb-6' },
+                            h('input', {
+                                type: 'text',
+                                placeholder: 'Nom d\'utilisateur',
+                                value: newUser.username,
+                                onChange: (e) => setNewUser({ ...newUser, username: e.target.value }),
+                                className: 'border-2 border-gray-300 rounded px-4 py-2'
+                            }),
+                            h('input', {
+                                type: 'password',
+                                placeholder: 'Mot de passe',
+                                value: newUser.password,
+                                onChange: (e) => setNewUser({ ...newUser, password: e.target.value }),
+                                className: 'border-2 border-gray-300 rounded px-4 py-2'
+                            }),
+                            h('select', {
+                                value: newUser.role,
+                                onChange: (e) => setNewUser({ ...newUser, role: e.target.value }),
+                                className: 'border-2 border-gray-300 rounded px-4 py-2'
+                            },
+                                h('option', { value: 'user' }, 'Utilisateur'),
+                                h('option', { value: 'admin' }, 'Administrateur')
+                            ),
+                            h('button', {
+                                onClick: handleAddUser,
+                                className: 'bg-blue-600 hover:bg-blue-700 text-white font-bold rounded'
+                            }, 'Ajouter')
+                        ),
+                        h('h2', { className: 'text-xl font-semibold mb-4' }, 'Liste des utilisateurs'),
+                        h('table', { className: 'w-full mb-6' },
+                            h('thead', { className: 'bg-gray-200' },
+                                h('tr', null,
+                                    h('th', { className: 'px-4 py-2 text-left' }, 'Nom d\'utilisateur'),
+                                    h('th', { className: 'px-4 py-2 text-left' }, 'Rôle'),
+                                    h('th', { className: 'px-4 py-2 text-left' }, 'Actions')
+                                )
+                            ),
+                            h('tbody', null,
+                                users.map((user, idx) =>
+                                    h('tr', { key: idx, className: idx % 2 === 0 ? 'bg-gray-50' : 'bg-white' },
+                                        h('td', { className: 'px-4 py-2' }, user.username),
+                                        h('td', { className: 'px-4 py-2' },
+                                            h('span', {
+                                                className: `px-3 py-1 rounded-full text-sm font-semibold ${user.role === 'admin' ? 'bg-red-200 text-red-800' : 'bg-blue-200 text-blue-800'}`
+                                            }, user.role === 'admin' ? 'Administrateur' : 'Utilisateur')
+                                        ),
+                                        h('td', { className: 'px-4 py-2' },
+                                            user.username !== 'admin' && h('button', {
+                                                onClick: () => deleteUser(user.username),
+                                                className: 'text-red-600 hover:text-red-800 font-semibold'
+                                            }, 'Supprimer')
+                                        )
+                                    )
+                                )
+                            )
+                        ),
+                        h('div', { className: 'border-t-2 border-gray-300 pt-4' },
+                            h('h2', { className: 'text-xl font-semibold mb-4 text-red-700' }, '⚠️ Zone dangereuse'),
+                            h('p', { className: 'text-sm text-gray-600 mb-4' },
+                                'Cette action supprimera tous les utilisateurs et réinitialisera le compte admin avec le mot de passe par défaut (1982).'
+                            ),
+                            h('button', {
+                                onClick: async () => {
+                                    if (window.confirm('⚠️ ATTENTION : Réinitialiser tous les utilisateurs ? Cette action est irréversible !')) {
+                                        const defaultUsers = [{ username: 'admin', password: '1982', role: 'admin' }];
+                                        await saveUsers(defaultUsers);
+                                        alert('✅ Utilisateurs réinitialisés ! Mot de passe admin : 1982');
+                                    }
+                                },
+                                className: 'bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-6 rounded-lg'
+                            }, '🔄 Réinitialiser tous les utilisateurs')
+                        )
+                    )
+                );
+            }
+
+            // RENDU PRINCIPAL
+            if (!currentUser) return h(LoginPage);
+            if (currentPage === 'index') return h(IndexPage);
+            if (currentPage === 'settings') {
+                if (currentUser.role !== 'admin') {
+                    setCurrentPage('index');
+                    return h(IndexPage);
+                }
+                return h(SettingsPage);
+            }
+            if (currentPage === 'inscription') return h(InscriptionPage);
+            if (currentPage === 'resultats') return h(ResultatsPage);
+            if (currentPage.startsWith('poste')) {
+                const posteNum = currentPage.replace('poste', '');
+                return h(PostePage, { posteNum });
+            }
+            return h(IndexPage);
+        }
+
+        // Démarrage de l'application
+        ReactDOM.render(React.createElement(FishingContestApp), document.getElementById('root'));
+    </script>
+</body>
+</html>
