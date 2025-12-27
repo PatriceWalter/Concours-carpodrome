@@ -10,78 +10,114 @@
     <script crossorigin src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
     <script crossorigin src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .fish-gradient { background: linear-gradient(135deg, #1e3a8a 0%, #3b82f6 100%); }
+        .card-shadow { box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06); }
+    </style>
 </head>
-<body class="bg-gray-100">
+<body class="bg-slate-50">
     <div id="root"></div>
+
     <script>
-        // Ta configuration Firebase [cite: 5, 42]
         const firebaseConfig = {
           apiKey: "AIzaSyB44m6DoeyQSNMctS0hKlpaPR5vNOTNsW0",
           authDomain: "concours-peche.firebaseapp.com",
           projectId: "concours-peche",
           storageBucket: "concours-peche.firebasestorage.app",
           messagingSenderId: "376446532224",
-          appId: "1:376446532224:web:4f9c1ffd2f4fe3ef450465",
-          measurementId: "G-L9PKD3JZL0"
+          appId: "1:376446532224:web:4f9c1ffd2f4fe3ef450465"
         };
 
-        // Initialisation correcte [cite: 6, 7]
         firebase.initializeApp(firebaseConfig);
         const db = firebase.firestore();
         const auth = firebase.auth();
 
         const { useState, useEffect, createElement: h } = React;
 
-        function FishingApp() {
+        function App() {
             const [user, setUser] = useState(null);
-            const [page, setPage] = useState('login');
-            const [fishermen, setFishermen] = useState([]);
+            const [page, setPage] = useState('loading');
+            const [selectedPoste, setSelectedPoste] = useState(null);
+            const [nom, setNom] = useState('');
 
             useEffect(() => {
                 auth.onAuthStateChanged(u => {
-                    if(u) { setUser(u); setPage('index'); }
+                    if(u) { setUser(u); setPage('menu'); }
                     else { setUser(null); setPage('login'); }
                 });
             }, []);
 
-            useEffect(() => {
-                if (!user) return;
-                // On écoute la collection que tu as créée 
-                const unsub = db.collection("fishermen").onSnapshot(snap => {
-                    const list = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                    setFishermen(list);
+            const inscrirePecheur = async () => {
+                if(!nom) return alert("Nom requis");
+                await db.collection("fishermen").add({
+                    name: nom,
+                    poste: selectedPoste,
+                    timestamp: firebase.firestore.FieldValue.serverTimestamp(),
+                    totalWeight: 0
                 });
-                return () => unsub();
-            }, [user]);
+                alert("Pêcheur inscrit au poste " + selectedPoste);
+                setNom('');
+                setPage('menu');
+            };
 
-            if (page === 'login' && !user) {
-                return h('div', { className: 'min-h-screen bg-blue-900 flex items-center justify-center p-4' },
-                    h('div', { className: 'bg-white p-6 rounded-lg w-full max-w-sm' },
-                        h('h1', { className: 'text-xl font-bold mb-4 text-center' }, 'CONNEXION'),
-                        h('input', { id: 'email', type: 'email', placeholder: 'Email', className: 'w-full p-2 mb-2 border' }),
-                        h('input', { id: 'pass', type: 'password', placeholder: 'Code', className: 'w-full p-2 mb-4 border' }),
+            // ÉCRAN CONNEXION
+            if (page === 'login') {
+                return h('div', { className: 'min-h-screen fish-gradient flex items-center justify-center p-6' },
+                    h('div', { className: 'bg-white rounded-2xl p-8 w-full max-w-md shadow-2xl text-center' },
+                        h('div', { className: 'text-5xl mb-4' }, '🐟'),
+                        h('h1', { className: 'text-2xl font-black text-blue-900 mb-6' }, 'CONCOURS DE PÊCHE'),
+                        h('input', { id:'em', type:'email', placeholder:'Email admin', className:'w-full p-3 mb-3 border rounded-xl' }),
+                        h('input', { id:'pw', type:'password', placeholder:'Code secret', className:'w-full p-3 mb-6 border rounded-xl' }),
                         h('button', { 
-                            onClick: () => auth.signInWithEmailAndPassword(document.getElementById('email').value, document.getElementById('pass').value),
-                            className: 'w-full bg-blue-600 text-white p-2 rounded' 
-                        }, 'Se connecter')
+                            onClick: () => auth.signInWithEmailAndPassword(document.getElementById('em').value, document.getElementById('pw').value),
+                            className: 'w-full fish-gradient text-white font-bold py-4 rounded-xl' 
+                        }, 'DÉMARRER LE CONCOURS')
                     )
                 );
             }
 
-            return h('div', { className: 'p-4' },
-                h('div', { className: 'flex justify-between items-center mb-6' },
-                    h('h1', { className: 'font-bold' }, 'CONCOURS PÊCHE'),
-                    h('button', { onClick: () => auth.signOut(), className: 'text-red-500' }, 'Quitter')
-                ),
-                h('div', { className: 'grid grid-cols-2 gap-4' },
-                    [1,2,3,4,5,6,7,8].map(n => h('button', { 
-                        className: 'bg-white p-4 rounded border shadow-sm font-bold' 
-                    }, `POSTE ${n}`))
-                )
-            );
+            // MENU PRINCIPAL
+            if (page === 'menu') {
+                return h('div', { className: 'min-h-screen' },
+                    h('div', { className: 'fish-gradient p-6 text-white flex justify-between items-center shadow-lg' },
+                        h('h1', { className: 'font-black text-xl' }, 'GESTION CONCOURS'),
+                        h('button', { onClick: () => auth.signOut(), className: 'bg-red-500/20 px-4 py-2 rounded-lg text-sm' }, 'Quitter')
+                    ),
+                    h('div', { className: 'p-6 grid grid-cols-2 gap-4' },
+                        [1,2,3,4,5,6,7,8,9,10,11,12].map(n => h('button', {
+                            onClick: () => { setSelectedPoste(n); setPage('inscription'); },
+                            className: 'bg-white p-8 rounded-2xl border-2 border-blue-100 shadow-sm flex flex-col items-center hover:border-blue-500'
+                        }, 
+                            h('span', { className: 'text-gray-400 text-sm mb-1' }, 'POSTE'),
+                            h('span', { className: 'text-3xl font-black text-blue-900' }, n)
+                        ))
+                    )
+                );
+            }
+
+            // FORMULAIRE INSCRIPTION
+            if (page === 'inscription') {
+                return h('div', { className: 'min-h-screen p-6' },
+                    h('button', { onClick: () => setPage('menu'), className: 'mb-6 text-blue-600 font-bold' }, '← Retour aux postes'),
+                    h('div', { className: 'bg-white rounded-2xl p-6 shadow-xl border-t-4 border-blue-600' },
+                        h('h2', { className: 'text-xl font-black mb-4 uppercase' }, `Inscription Poste ${selectedPoste}`),
+                        h('label', { className: 'block text-sm font-bold text-gray-500 mb-2' }, 'NOM DU PÊCHEUR'),
+                        h('input', { 
+                            value: nom, onChange: (e) => setNom(e.target.value),
+                            placeholder: 'Ex: Jean Dupont', className: 'w-full p-4 border-2 rounded-xl mb-6 text-lg' 
+                        }),
+                        h('button', { 
+                            onClick: inscrirePecheur,
+                            className: 'w-full fish-gradient text-white font-bold py-4 rounded-xl shadow-lg' 
+                        }, 'VALIDER L\'INSCRIPTION')
+                    )
+                );
+            }
+
+            return h('div', { className: 'min-h-screen flex items-center justify-center' }, 'Chargement...');
         }
 
-        ReactDOM.render(h(FishingApp), document.getElementById('root'));
+        ReactDOM.render(h(App), document.getElementById('root'));
     </script>
 </body>
 </html>
