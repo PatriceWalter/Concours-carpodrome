@@ -7,7 +7,6 @@
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
-    
     <script crossorigin src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
     <script crossorigin src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
@@ -15,148 +14,71 @@
 <body class="bg-gray-100">
     <div id="root"></div>
     <script>
-        // Tes clés de connexion récupérées dans tes fichiers
+        // Ta configuration Firebase [cite: 5, 42]
         const firebaseConfig = {
           apiKey: "AIzaSyB44m6DoeyQSNMctS0hKlpaPR5vNOTNsW0",
           authDomain: "concours-peche.firebaseapp.com",
           projectId: "concours-peche",
           storageBucket: "concours-peche.firebasestorage.app",
           messagingSenderId: "376446532224",
-          appId: "1:376446532224:web:4f9c1ffd2f4fe3ef450465"
+          appId: "1:376446532224:web:4f9c1ffd2f4fe3ef450465",
+          measurementId: "G-L9PKD3JZL0"
         };
 
+        // Initialisation correcte [cite: 6, 7]
         firebase.initializeApp(firebaseConfig);
         const db = firebase.firestore();
         const auth = firebase.auth();
-        const { useState, useEffect, createElement: h } = React;
 
-        // --- ICONES ---
-        const Fish = () => h('svg', { width: 40, height: 40, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 2, className: 'mx-auto mb-2' }, h('path', { d: 'M23 12c-2.4 3.4-5.4 6-9 6s-6.6-2.6-9-6c2.4-3.4 5.4-6 9-6s6.6 2.6 9 6Z' }));
-        const LogOut = () => h('svg', { width: 20, height: 20, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 2 }, h('path', { d: 'M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9' }));
+        const { useState, useEffect, createElement: h } = React;
 
         function FishingApp() {
             const [user, setUser] = useState(null);
             const [page, setPage] = useState('login');
             const [fishermen, setFishermen] = useState([]);
 
-            // Surveillance de la connexion
             useEffect(() => {
-                auth.onAuthStateChanged(u => u ? setUser(u) : setUser(null));
+                auth.onAuthStateChanged(u => {
+                    if(u) { setUser(u); setPage('index'); }
+                    else { setUser(null); setPage('login'); }
+                });
             }, []);
 
-            // Lecture des données en temps réel sur Firebase
             useEffect(() => {
                 if (!user) return;
+                // On écoute la collection que tu as créée 
                 const unsub = db.collection("fishermen").onSnapshot(snap => {
-                    setFishermen(snap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+                    const list = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                    setFishermen(list);
                 });
                 return () => unsub();
             }, [user]);
 
-            // --- FONCTION ENREGISTRER UN PECHEUR ---
-            const saveFisherman = async (nom, prenom, poste) => {
-                await db.collection("fishermen").add({ nom, prenom, poste: parseInt(poste), weights: [] });
-                setPage('index');
-            };
-
-            // --- FONCTION ENREGISTRER UNE PESÉE ---
-            const addWeight = async (id, period, weight, count) => {
-                const fish = fishermen.find(f => f.id === id);
-                const newWeights = [...(fish.weights || []), { period, weight: parseFloat(weight), count: parseInt(count) }];
-                await db.collection("fishermen").doc(id).update({ weights: newWeights });
-                alert("Pesée enregistrée !");
-            };
-
-            // --- PAGE CONNEXION ---
-            if (!user) {
-                return h('div', { className: 'flex items-center justify-center min-h-screen bg-blue-900 p-4' },
-                    h('div', { className: 'bg-white p-6 rounded-xl shadow-lg w-full max-w-sm' },
-                        h(Fish),
-                        h('h2', { className: 'text-center font-bold mb-4' }, 'ACCÈS CONCOURS'),
-                        h('input', { id: 'em', type: 'email', placeholder: 'Email', className: 'w-full p-2 border mb-2' }),
-                        h('input', { id: 'pw', type: 'password', placeholder: 'Code', className: 'w-full p-2 border mb-4' }),
+            if (page === 'login' && !user) {
+                return h('div', { className: 'min-h-screen bg-blue-900 flex items-center justify-center p-4' },
+                    h('div', { className: 'bg-white p-6 rounded-lg w-full max-w-sm' },
+                        h('h1', { className: 'text-xl font-bold mb-4 text-center' }, 'CONNEXION'),
+                        h('input', { id: 'email', type: 'email', placeholder: 'Email', className: 'w-full p-2 mb-2 border' }),
+                        h('input', { id: 'pass', type: 'password', placeholder: 'Code', className: 'w-full p-2 mb-4 border' }),
                         h('button', { 
-                            onClick: () => auth.signInWithEmailAndPassword(document.getElementById('em').value, document.getElementById('pw').value).catch(e => alert("Erreur d'accès")),
+                            onClick: () => auth.signInWithEmailAndPassword(document.getElementById('email').value, document.getElementById('pass').value),
                             className: 'w-full bg-blue-600 text-white p-2 rounded' 
-                        }, 'Entrer')
+                        }, 'Se connecter')
                     )
                 );
             }
 
-            // --- MENU PRINCIPAL ---
-            if (page === 'index') {
-                return h('div', { className: 'p-4' },
-                    h('div', { className: 'flex justify-between items-center mb-6' },
-                        h('h1', { className: 'font-bold text-blue-900' }, 'TABLEAU DE BORD'),
-                        h('button', { onClick: () => auth.signOut() }, h(LogOut))
-                    ),
-                    h('div', { className: 'grid grid-cols-1 gap-4' },
-                        h('button', { onClick: () => setPage('inscription'), className: 'bg-orange-500 text-white p-4 rounded-lg font-bold' }, '📝 Inscrire un Pêcheur'),
-                        h('button', { onClick: () => setPage('resultats'), className: 'bg-green-600 text-white p-4 rounded-lg font-bold' }, '🏆 Classement en Direct'),
-                        h('div', { className: 'grid grid-cols-2 gap-2 mt-4' },
-                            [1,2,3,4,5,6,7,8].map(n => h('button', { 
-                                onClick: () => setPage(`poste${n}`),
-                                className: 'bg-white border-2 border-blue-200 p-4 rounded font-bold'
-                            }, `POSTE ${n}`))
-                        )
-                    )
-                );
-            }
-
-            // --- PAGE INSCRIPTION ---
-            if (page === 'inscription') {
-                return h('div', { className: 'p-4' },
-                    h('button', { onClick: () => setPage('index'), className: 'mb-4 text-blue-600' }, '← Retour'),
-                    h('h2', { className: 'font-bold mb-4' }, 'NOUVELLE INSCRIPTION'),
-                    h('input', { id: 'nom', placeholder: 'Nom', className: 'w-full p-2 border mb-2' }),
-                    h('input', { id: 'pre', placeholder: 'Prénom', className: 'w-full p-2 border mb-2' }),
-                    h('input', { id: 'pos', type: 'number', placeholder: 'N° de Poste', className: 'w-full p-2 border mb-4' }),
-                    h('button', { 
-                        onClick: () => saveFisherman(document.getElementById('nom').value, document.getElementById('pre').value, document.getElementById('pos').value),
-                        className: 'w-full bg-blue-600 text-white p-3 rounded'
-                    }, 'Valider l\'inscription')
-                );
-            }
-
-            // --- PAGE RÉSULTATS ---
-            if (page === 'resultats') {
-                const sorted = [...fishermen].sort((a, b) => {
-                    const weightA = (a.weights || []).reduce((s, w) => s + w.weight, 0);
-                    const weightB = (b.weights || []).reduce((s, w) => s + w.weight, 0);
-                    return weightB - weightA;
-                });
-                return h('div', { className: 'p-4' },
-                    h('button', { onClick: () => setPage('index'), className: 'mb-4 text-blue-600' }, '← Retour'),
-                    h('h2', { className: 'font-bold mb-4' }, 'CLASSEMENT GÉNÉRAL'),
-                    sorted.map((f, i) => h('div', { className: 'bg-white p-3 mb-2 rounded shadow flex justify-between' },
-                        h('span', null, `${i+1}. ${f.nom} (Poste ${f.poste})`),
-                        h('span', { className: 'font-bold' }, `${(f.weights || []).reduce((s,w) => s+w.weight, 0)} g`)
-                    ))
-                );
-            }
-
-            // --- PAGES DES POSTES ---
-            if (page.startsWith('poste')) {
-                const n = parseInt(page.replace('poste', ''));
-                const f = fishermen.find(fish => fish.poste === n);
-                return h('div', { className: 'p-4' },
-                    h('button', { onClick: () => setPage('index'), className: 'mb-4 text-blue-600' }, '← Retour'),
-                    h('h2', { className: 'font-bold' }, `SAISIE POSTE ${n}`),
-                    f ? h('div', null, 
-                        h('p', { className: 'mb-4' }, `Pêcheur : ${f.nom} ${f.prenom}`),
-                        h('select', { id: 'per', className: 'w-full p-2 border mb-2' }, 
-                            h('option', { value: 'Matin' }, 'Matin'),
-                            h('option', { value: 'Après-midi' }, 'Après-midi')
-                        ),
-                        h('input', { id: 'wei', type: 'number', placeholder: 'Poids (grammes)', className: 'w-full p-2 border mb-2' }),
-                        h('input', { id: 'cnt', type: 'number', placeholder: 'Nombre de poissons', className: 'w-full p-2 border mb-4' }),
-                        h('button', { 
-                            onClick: () => addWeight(f.id, document.getElementById('per').value, document.getElementById('wei').value, document.getElementById('cnt').value),
-                            className: 'w-full bg-green-600 text-white p-3 rounded'
-                        }, 'Enregistrer la pesée')
-                    ) : h('p', { className: 'text-red-500' }, 'Aucun pêcheur inscrit à ce poste.')
-                );
-            }
+            return h('div', { className: 'p-4' },
+                h('div', { className: 'flex justify-between items-center mb-6' },
+                    h('h1', { className: 'font-bold' }, 'CONCOURS PÊCHE'),
+                    h('button', { onClick: () => auth.signOut(), className: 'text-red-500' }, 'Quitter')
+                ),
+                h('div', { className: 'grid grid-cols-2 gap-4' },
+                    [1,2,3,4,5,6,7,8].map(n => h('button', { 
+                        className: 'bg-white p-4 rounded border shadow-sm font-bold' 
+                    }, `POSTE ${n}`))
+                )
+            );
         }
 
         ReactDOM.render(h(FishingApp), document.getElementById('root'));
