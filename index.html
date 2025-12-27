@@ -2,236 +2,155 @@
 <html lang="fr">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Concours de Pêche</title>
-    
-    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
+    <!-- React -->
     <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+    <!-- UI -->
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/lucide@latest"></script>
+
+    <!-- Firebase -->
+    <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-database-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
+
     <style>
         body { background-color: #f3f4f6; }
     </style>
 </head>
 <body>
-    <div id="root"></div>
 
-    <script type="text/babel">
-        // CONFIGURATION FIREBASE
-        const firebaseConfig = {
-            apiKey: "AIzaSyB44m6DoeyQSNMctS0hKlpaPR5vNOTNsW0",
-            authDomain: "concours-peche.firebaseapp.com",
-            projectId: "concours-peche",
-            storageBucket: "concours-peche.firebasestorage.app",
-            messagingSenderId: "376446532224",
-            appId: "1:376446532224:web:4f9c1ffd2f4fe3ef450465"
-        };
-        firebase.initializeApp(firebaseConfig);
-        const db = firebase.firestore();
+<div id="root"></div>
 
-        const { useState, useEffect } = React;
+<script>
+/* ============================
+   CONFIG FIREBASE
+============================ */
+const firebaseConfig = {
+  apiKey: "AIzaSyD.....",
+  authDomain: "concours-peche.firebaseapp.com",
+  databaseURL: "https://concours-peche-default-rtdb.europe-west1.firebasedatabase.app",
+  projectId: "concours-peche",
+  storageBucket: "concours-peche.appspot.com",
+  messagingSenderId: "1234567890",
+  appId: "1:1234567890:web:abcdef123456"
+};
 
-        // TON OBJET STORAGE REDIRIGÉ VERS FIREBASE
-        const storage = {
-            get: async (key) => {
-                const doc = await db.collection('competition').doc(key).get();
-                return { value: doc.exists ? JSON.stringify(doc.data().value) : null };
-            },
-            set: async (key, value) => {
-                await db.collection('competition').doc(key).set({ value: JSON.parse(value) });
-            }
-        };
 
-        const Icon = ({ name, size = 24, className = "" }) => {
-            useEffect(() => {
-                if (window.lucide) window.lucide.createIcons();
-            }, [name]);
-            return <i data-lucide={name} style={{ width: size, height: size }} className={className}></i>;
-        };
+firebase.initializeApp(firebaseConfig);
 
-        const FishingContestApp = () => {
-            const [currentPage, setCurrentPage] = useState('index');
-            const [fishermen, setFishermen] = useState([]);
-            const [isLoaded, setIsLoaded] = useState(false);
-            const [contestInfo, setContestInfo] = useState({ title: 'Concours de Pêche 2x4', date: '21 avril 2025' });
+const db = firebase.database();
+const auth = firebase.auth();
 
-            // CHARGEMENT INITIAL
-            useEffect(() => {
-                const loadAll = async () => {
-                    const resData = await storage.get('fishermen-list');
-                    if (resData.value) setFishermen(JSON.parse(resData.value));
-                    const resInfo = await storage.get('contest-info');
-                    if (resInfo.value) setContestInfo(JSON.parse(resInfo.value));
-                    setIsLoaded(true);
-                };
-                loadAll();
-            }, []);
+/* ============================
+   AUTH SIMPLE
+============================ */
+window.currentUser = null;
 
-            // SAUVEGARDE AUTOMATIQUE (Dès que fishermen change)
-            useEffect(() => {
-                if (isLoaded) {
-                    storage.set('fishermen-list', JSON.stringify(fishermen));
-                }
-            }, [fishermen, isLoaded]);
+auth.onAuthStateChanged(user => {
+    window.currentUser = user;
+});
 
-            const saveContestInfo = async (info) => {
-                setContestInfo(info);
-                await storage.set('contest-info', JSON.stringify(info));
-            };
+/* ============================
+   STORAGE TEMPS RÉEL COMMUN
+============================ */
+window.storage = {
+    get: async (key) => {
+        const snap = await db.ref(key).get();
+        return { value: snap.exists() ? JSON.stringify(snap.val()) : null };
+    },
+    set: async (key, value) => {
+        await db.ref(key).set(JSON.parse(value));
+    },
+    on: (key, callback) => {
+        db.ref(key).on("value", snap => {
+            if (snap.exists()) callback(snap.val());
+        });
+    }
+};
+</script>
 
-            // LOGIQUE MÉTIER (TES FONCTIONS ORIGINALES)
-            const addFisherman = (nom, prenom, poste) => {
-                if (nom && prenom) {
-                    if (poste && fishermen.find(f => f.poste === poste)) {
-                        alert('Ce poste est déjà occupé !');
-                        return false;
-                    }
-                    setFishermen([...fishermen, { nom, prenom, poste: poste || null, weights: [] }]);
-                    return true;
-                }
-                return false;
-            };
+<script type="text/babel">
+const { useState, useEffect } = React;
 
-            const deleteFisherman = (idx) => {
-                if (confirm('Supprimer ?')) setFishermen(fishermen.filter((_, i) => i !== idx));
-            };
+/* ============================
+   ICON
+============================ */
+const Icon = ({ name }) => {
+    useEffect(() => lucide.createIcons(), []);
+    return <i data-lucide={name}></i>;
+};
 
-            const addWeight = (poste, period, weight, fishCount) => {
-                setFishermen(fishermen.map(f => f.poste === poste ? {
-                    ...f, weights: [...(f.weights || []), { period, weight: parseFloat(weight) || 0, fishCount: parseInt(fishCount) || 1, time: new Date().toISOString() }]
-                } : f));
-            };
+/* ============================
+   APP
+============================ */
+const App = () => {
+    const [user, setUser] = useState(null);
+    const [email, setEmail] = useState("");
+    const [password, setPassword] = useState("");
 
-            const deleteWeight = (poste, idx) => {
-                setFishermen(fishermen.map(f => {
-                    if (f.poste === poste) {
-                        const w = [...f.weights]; w.splice(idx, 1);
-                        return { ...f, weights: w };
-                    }
-                    return f;
-                }));
-            };
+    const [fishermen, setFishermen] = useState([]);
+    const [contestInfo, setContestInfo] = useState({ title: "Concours de Pêche", date: "" });
 
-            const getTotalWeight = (f) => f.weights ? f.weights.reduce((sum, w) => sum + w.weight, 0) : 0;
-            const getTotalFishCount = (f) => f.weights ? f.weights.reduce((sum, w) => sum + (w.fishCount || 0), 0) : 0;
-            const getWeightByPeriod = (f, p) => f.weights ? f.weights.filter(w => w.period === p).reduce((sum, w) => sum + w.weight, 0) : 0;
+    useEffect(() => {
+        auth.onAuthStateChanged(u => setUser(u));
+    }, []);
 
-            // --- TES PAGES (INTERFACE ORIGINALE) ---
+    /* ===== SYNC TEMPS RÉEL ===== */
+    useEffect(() => {
+        storage.on("fishermen-list", setFishermen);
+        storage.on("contest-info", setContestInfo);
+    }, []);
 
-            const IndexPage = () => (
-                <div className="min-h-screen p-4">
-                    <div className="flex justify-end mb-4">
-                        <button onClick={() => setCurrentPage('settings')} className="bg-gray-600 text-white p-3 rounded-full shadow-lg"><Icon name="settings" /></button>
-                    </div>
-                    <h1 className="text-3xl font-bold text-center mb-2 text-blue-900">{contestInfo.title}</h1>
-                    <h2 className="text-xl text-center mb-8 text-gray-700">{contestInfo.date}</h2>
-                    <div className="max-w-2xl mx-auto grid grid-cols-2 gap-4">
-                        <button onClick={() => setCurrentPage('inscription')} className="bg-orange-500 text-white font-bold py-6 px-4 rounded-lg shadow-lg"><Icon name="users" className="mx-auto mb-2" /> Inscription</button>
-                        <button onClick={() => setCurrentPage('resultats')} className="bg-green-500 text-white font-bold py-6 px-4 rounded-lg shadow-lg"><Icon name="trophy" className="mx-auto mb-2" /> Résultats</button>
-                        {[1,2,3,4,5,6,7,8,9,10,11,12,13,14].map(num => (
-                            <button key={num} onClick={() => setCurrentPage(`poste${num}`)} className="bg-blue-200 text-blue-900 font-semibold py-4 px-4 rounded-lg shadow">Poste {num}</button>
-                        ))}
-                    </div>
+    const login = async () => {
+        await auth.signInWithEmailAndPassword(email, password);
+    };
+
+    const logout = async () => {
+        await auth.signOut();
+    };
+
+    if (!user) {
+        return (
+            <div className="min-h-screen flex items-center justify-center">
+                <div className="bg-white p-6 rounded shadow w-80">
+                    <h2 className="text-xl font-bold mb-4">Connexion</h2>
+                    <input className="border p-2 w-full mb-2" placeholder="Email" onChange={e=>setEmail(e.target.value)} />
+                    <input type="password" className="border p-2 w-full mb-4" placeholder="Mot de passe" onChange={e=>setPassword(e.target.value)} />
+                    <button onClick={login} className="bg-blue-600 text-white w-full p-2 rounded">Connexion</button>
                 </div>
-            );
+            </div>
+        );
+    }
 
-            const InscriptionPage = () => (
-                <div className="min-h-screen p-4">
-                    <button onClick={() => setCurrentPage('index')} className="mb-4 flex items-center text-blue-600"><Icon name="arrow-left" size={20} className="mr-2" /> Retour</button>
-                    <h1 className="text-2xl font-bold mb-6 text-blue-900">Inscription</h1>
-                    <div className="bg-white rounded shadow overflow-hidden">
-                        <table className="w-full text-left">
-                            <thead className="bg-yellow-500">
-                                <tr><th className="p-3">Poste</th><th className="p-3">Nom</th><th className="p-3">Actions</th></tr>
-                            </thead>
-                            <tbody>
-                                {fishermen.filter(f => f.poste).map((f, i) => (
-                                    <tr key={i} className="border-b">
-                                        <td className="p-3 font-bold">Poste {f.poste}</td>
-                                        <td className="p-3">{f.nom} {f.prenom}</td>
-                                        <td className="p-3"><button onClick={() => deleteFisherman(fishermen.indexOf(f))} className="text-red-600">Supprimer</button></td>
-                                    </tr>
-                                ))}
-                            </tbody>
-                        </table>
-                    </div>
-                    <button onClick={() => {
-                        const n = prompt("Nom ?"); const p = prompt("Prénom ?"); const po = prompt("Poste ?");
-                        addFisherman(n, p, po);
-                    }} className="mt-4 bg-blue-600 text-white p-3 rounded w-full font-bold">Ajouter un pêcheur</button>
-                </div>
-            );
+    return (
+        <div className="p-4">
+            <div className="flex justify-between mb-4">
+                <div className="font-bold">{contestInfo.title}</div>
+                <button onClick={logout} className="text-red-600">Déconnexion</button>
+            </div>
 
-            const PostePage = ({ posteNum }) => {
-                const f = fishermen.find(p => p.poste === posteNum);
-                const [w, setW] = useState('');
-                if (!f) return <div className="p-8 text-center"><button onClick={() => setCurrentPage('index')}>Retour</button><p>Poste vide</p></div>;
-                return (
-                    <div className="min-h-screen p-4">
-                        <button onClick={() => setCurrentPage('index')} className="mb-4 flex items-center text-blue-600"><Icon name="arrow-left" size={20} className="mr-2" /> Retour</button>
-                        <div className="bg-white p-6 rounded-lg shadow">
-                            <h1 className="text-2xl font-bold mb-4">Poste {posteNum} : {f.nom}</h1>
-                            <div className="bg-yellow-50 p-4 rounded mb-4 font-bold text-green-600 text-xl">Total: {getTotalWeight(f).toFixed(3)} kg</div>
-                            <div className="flex gap-2 mb-4">
-                                <input type="number" placeholder="kg" value={w} onChange={e => setW(e.target.value)} className="border p-2 rounded flex-1" />
-                                <button onClick={() => { addWeight(posteNum, 'matin', w, 1); setW(''); }} className="bg-green-600 text-white px-4 rounded">OK</button>
-                            </div>
-                        </div>
-                    </div>
-                );
-            };
+            <button
+                onClick={() => storage.set("fishermen-list", [...fishermen, { nom:"Test", prenom:"User", poste:null, weights:[] }])}
+                className="bg-green-600 text-white p-2 rounded"
+            >
+                Ajouter pêcheur test
+            </button>
 
-            const ResultatsPage = () => {
-                const sorted = [...fishermen].sort((a, b) => getTotalWeight(b) - getTotalWeight(a));
-                return (
-                    <div className="min-h-screen p-4">
-                        <button onClick={() => setCurrentPage('index')} className="mb-4 flex items-center text-blue-600"><Icon name="arrow-left" size={20} className="mr-2" /> Retour</button>
-                        <h1 className="text-2xl font-bold mb-4">Classement</h1>
-                        <div className="bg-white rounded-lg shadow overflow-hidden">
-                            <table className="w-full text-left">
-                                <thead className="bg-yellow-500 font-bold">
-                                    <tr><th className="p-3">Pos</th><th className="p-3">Pêcheur</th><th className="p-3">Total</th><th className="p-3">Nb</th></tr>
-                                </thead>
-                                <tbody>
-                                    {sorted.map((f, i) => (
-                                        <tr key={i} className={i < 3 ? "bg-yellow-50" : "border-b"}>
-                                            <td className="p-3 font-bold">{i + 1}</td>
-                                            <td className="p-3">{f.nom} (P{f.poste})</td>
-                                            <td className="p-3 font-bold text-green-600">{getTotalWeight(f).toFixed(3)} kg</td>
-                                            <td className="p-3">{getTotalFishCount(f)}</td>
-                                        </tr>
-                                    ))}
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
-                );
-            };
+            <pre className="bg-white mt-4 p-4 rounded shadow text-sm">
+                {JSON.stringify(fishermen, null, 2)}
+            </pre>
+        </div>
+    );
+};
 
-            const SettingsPage = () => (
-                <div className="p-4">
-                    <button onClick={() => setCurrentPage('index')} className="mb-4 flex items-center text-blue-600"><Icon name="arrow-left" size={20} className="mr-2" /> Retour</button>
-                    <div className="bg-white p-6 rounded shadow">
-                        <h2 className="text-xl font-bold mb-4 text-red-600">Paramètres (Cloud)</h2>
-                        <button onClick={() => { if(confirm('Vider la base ?')) setFishermen([]); }} className="bg-red-600 text-white p-2 w-full rounded">Réinitialiser tout</button>
-                    </div>
-                </div>
-            );
+ReactDOM.createRoot(document.getElementById("root")).render(<App />);
+</script>
 
-            if (currentPage === 'index') return <IndexPage />;
-            if (currentPage === 'settings') return <SettingsPage />;
-            if (currentPage === 'inscription') return <InscriptionPage />;
-            if (currentPage === 'resultats') return <ResultatsPage />;
-            if (currentPage.startsWith('poste')) return <PostePage posteNum={currentPage.replace('poste', '')} />;
-            return <IndexPage />;
-        };
-
-        const root = ReactDOM.createRoot(document.getElementById('root'));
-        root.render(<FishingContestApp />);
-    </script>
 </body>
 </html>
