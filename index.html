@@ -1,164 +1,187 @@
 <!DOCTYPE html>
 <html lang="fr">
 <head>
-    <meta charset="UTF-8">
-    <title>Concours de Pêche</title>
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta charset="UTF-8">
+<title>Concours de Pêche</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-    <!-- React -->
-    <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
-    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
-    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+<!-- UI -->
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://unpkg.com/lucide@latest"></script>
 
-    <!-- UI -->
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://unpkg.com/lucide@latest"></script>
+<!-- React -->
+<script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+<script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
 
-    <!-- Firebase -->
-    <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-database-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
-
-    <style>
-        body { background-color: #f3f4f6; }
-    </style>
-</head>
-<body>
-
-<div id="root"></div>
-
-<script>
-/* ============================
-   CONFIG FIREBASE
-============================ */
-
-    <!-- Firebase SDKs (OBLIGATOIRE) -->
+<!-- Firebase -->
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-database-compat.js"></script>
 
-    
-    const firebaseConfig = {
-  apiKey: "AIzaSyD.....",
+<style>
+body { background-color:#f3f4f6; }
+</style>
+</head>
+
+<body>
+<div id="root"></div>
+
+<script>
+/* ================= FIREBASE ================= */
+const firebaseConfig = {
+  apiKey: "AIzaSyB4m0D0eyQSNMc...",
   authDomain: "concours-peche.firebaseapp.com",
   databaseURL: "https://concours-peche-default-rtdb.europe-west1.firebasedatabase.app",
   projectId: "concours-peche",
   storageBucket: "concours-peche.appspot.com",
-  messagingSenderId: "1234567890",
-  appId: "1:1234567890:web:abcdef123456"
+  messagingSenderId: "376446532224",
+  appId: "1:376446532224:web:4f9c1ffd2f4fe3ef450465"
 };
 
 
 firebase.initializeApp(firebaseConfig);
 
-const db = firebase.database();
 const auth = firebase.auth();
+const db = firebase.database();
 
-/* ============================
-   AUTH SIMPLE
-============================ */
-window.currentUser = null;
-
-auth.onAuthStateChanged(user => {
-    window.currentUser = user;
-});
-
-/* ============================
-   STORAGE TEMPS RÉEL COMMUN
-============================ */
+/* ============= STORAGE TEMPS RÉEL ============= */
 window.storage = {
-    get: async (key) => {
-        const snap = await db.ref(key).get();
-        return { value: snap.exists() ? JSON.stringify(snap.val()) : null };
-    },
-    set: async (key, value) => {
-        await db.ref(key).set(JSON.parse(value));
-    },
-    on: (key, callback) => {
-        db.ref(key).on("value", snap => {
-            if (snap.exists()) callback(snap.val());
-        });
-    }
+  on: (key, cb) => db.ref(key).on("value", s => cb(s.exists() ? s.val() : null)),
+  set: (key, val) => db.ref(key).set(val)
 };
 </script>
 
 <script type="text/babel">
 const { useState, useEffect } = React;
 
-/* ============================
-   ICON
-============================ */
-const Icon = ({ name }) => {
-    useEffect(() => lucide.createIcons(), []);
-    return <i data-lucide={name}></i>;
+/* ================= ICON ================= */
+const Icon = ({ name, size=24 }) => {
+  useEffect(()=>lucide.createIcons(),[]);
+  return <i data-lucide={name} style={{width:size,height:size}}></i>;
 };
 
-/* ============================
-   APP
-============================ */
+/* ================= APP ================= */
 const App = () => {
-    const [user, setUser] = useState(null);
-    const [email, setEmail] = useState("");
-    const [password, setPassword] = useState("");
+  const [user,setUser] = useState(null);
+  const [email,setEmail] = useState("");
+  const [password,setPassword] = useState("");
 
-    const [fishermen, setFishermen] = useState([]);
-    const [contestInfo, setContestInfo] = useState({ title: "Concours de Pêche", date: "" });
+  const [page,setPage] = useState("index");
+  const [fishermen,setFishermen] = useState([]);
+  const [contest,setContest] = useState({title:"Concours de Pêche",date:""});
 
-    useEffect(() => {
-        auth.onAuthStateChanged(u => setUser(u));
-    }, []);
+  useEffect(()=>auth.onAuthStateChanged(u=>setUser(u)),[]);
 
-    /* ===== SYNC TEMPS RÉEL ===== */
-    useEffect(() => {
-        storage.on("fishermen-list", setFishermen);
-        storage.on("contest-info", setContestInfo);
-    }, []);
+  useEffect(()=>{
+    if(!user) return;
+    storage.on("fishermen-list",d=>setFishermen(d||[]));
+    storage.on("contest-info",d=>setContest(d||contest));
+  },[user]);
 
-    const login = async () => {
-        await auth.signInWithEmailAndPassword(email, password);
-    };
+  const saveFishermen = list => storage.set("fishermen-list",list);
+  const saveContest = c => storage.set("contest-info",c);
 
-    const logout = async () => {
-        await auth.signOut();
-    };
+  const login = async()=> {
+    try { await auth.signInWithEmailAndPassword(email,password); }
+    catch(e){ alert(e.message); }
+  };
 
-    if (!user) {
-        return (
-            <div className="min-h-screen flex items-center justify-center">
-                <div className="bg-white p-6 rounded shadow w-80">
-                    <h2 className="text-xl font-bold mb-4">Connexion</h2>
-                    <input className="border p-2 w-full mb-2" placeholder="Email" onChange={e=>setEmail(e.target.value)} />
-                    <input type="password" className="border p-2 w-full mb-4" placeholder="Mot de passe" onChange={e=>setPassword(e.target.value)} />
-                    <button onClick={login} className="bg-blue-600 text-white w-full p-2 rounded">Connexion</button>
-                </div>
-            </div>
-        );
-    }
-
-    return (
-        <div className="p-4">
-            <div className="flex justify-between mb-4">
-                <div className="font-bold">{contestInfo.title}</div>
-                <button onClick={logout} className="text-red-600">Déconnexion</button>
-            </div>
-
-            <button
-                onClick={() => storage.set("fishermen-list", [...fishermen, { nom:"Test", prenom:"User", poste:null, weights:[] }])}
-                className="bg-green-600 text-white p-2 rounded"
-            >
-                Ajouter pêcheur test
-            </button>
-
-            <pre className="bg-white mt-4 p-4 rounded shadow text-sm">
-                {JSON.stringify(fishermen, null, 2)}
-            </pre>
+  if(!user){
+    return(
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="bg-white p-6 rounded shadow w-80">
+          <h2 className="text-xl font-bold mb-4">Connexion</h2>
+          <input className="border p-2 w-full mb-2" placeholder="Email" onChange={e=>setEmail(e.target.value)}/>
+          <input type="password" className="border p-2 w-full mb-4" placeholder="Mot de passe" onChange={e=>setPassword(e.target.value)}/>
+          <button onClick={login} className="bg-blue-600 text-white w-full p-2 rounded">Connexion</button>
         </div>
+      </div>
     );
+  }
+
+  /* ================= PAGES ================= */
+
+  const Index = ()=>(
+    <div className="p-4">
+      <h1 className="text-3xl font-bold text-center mb-2 text-blue-900">{contest.title}</h1>
+      <h2 className="text-xl text-center mb-6 text-gray-700">{contest.date}</h2>
+      <div className="grid grid-cols-2 gap-4 max-w-xl mx-auto">
+        <button onClick={()=>setPage("inscription")} className="bg-orange-500 text-white py-6 rounded"><Icon name="users"/> Inscription</button>
+        <button onClick={()=>setPage("resultats")} className="bg-green-500 text-white py-6 rounded"><Icon name="trophy"/> Résultats</button>
+        {[...Array(14)].map((_,i)=>(
+          <button key={i} onClick={()=>setPage("poste"+(i+1))} className="bg-blue-200 py-3 rounded">Poste {i+1}</button>
+        ))}
+      </div>
+    </div>
+  );
+
+  const Inscription = ()=>{
+    const [nom,setNom]=useState("");
+    const [prenom,setPrenom]=useState("");
+
+    const add = ()=>{
+      if(!nom||!prenom) return;
+      saveFishermen([...fishermen,{nom,prenom,poste:null,weights:[]}]);
+      setNom(""); setPrenom("");
+    };
+
+    return(
+      <div className="p-4">
+        <button onClick={()=>setPage("index")} className="mb-4 text-blue-600">← Retour</button>
+        <div className="bg-white p-4 rounded shadow mb-4">
+          <input className="border p-2 mr-2" placeholder="Nom" value={nom} onChange={e=>setNom(e.target.value)}/>
+          <input className="border p-2 mr-2" placeholder="Prénom" value={prenom} onChange={e=>setPrenom(e.target.value)}/>
+          <button onClick={add} className="bg-blue-600 text-white p-2 rounded">Ajouter</button>
+        </div>
+        {fishermen.map((f,i)=>(
+          <div key={i} className="bg-orange-100 p-2 mb-2 rounded">{f.nom} {f.prenom}</div>
+        ))}
+      </div>
+    );
+  };
+
+  const Poste = ({num})=>{
+    const f = fishermen.find(x=>x.poste==num);
+    if(!f) return <div className="p-4"><button onClick={()=>setPage("index")}>←</button>Aucun pêcheur</div>;
+    return(
+      <div className="p-4">
+        <button onClick={()=>setPage("index")} className="text-blue-600">← Retour</button>
+        <h1 className="text-xl font-bold mb-4">Poste {num} – {f.nom}</h1>
+      </div>
+    );
+  };
+
+  const Resultats = ()=>{
+    const sorted=[...fishermen].sort((a,b)=>{
+      const ta=(a.weights||[]).reduce((s,w)=>s+w.weight,0);
+      const tb=(b.weights||[]).reduce((s,w)=>s+w.weight,0);
+      return tb-ta;
+    });
+    return(
+      <div className="p-4">
+        <button onClick={()=>setPage("index")} className="text-blue-600">← Retour</button>
+        <table className="w-full bg-white mt-4 rounded shadow">
+          <thead className="bg-yellow-500"><tr><th>Pos</th><th>Nom</th></tr></thead>
+          <tbody>
+            {sorted.map((f,i)=>(
+              <tr key={i}><td>{i+1}</td><td>{f.nom}</td></tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    );
+  };
+
+  if(page==="index") return <Index/>;
+  if(page==="inscription") return <Inscription/>;
+  if(page==="resultats") return <Resultats/>;
+  if(page.startsWith("poste")) return <Poste num={page.replace("poste","")}/>;
+
+  return null;
 };
 
-ReactDOM.createRoot(document.getElementById("root")).render(<App />);
+ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
 </script>
-
 </body>
 </html>
-
