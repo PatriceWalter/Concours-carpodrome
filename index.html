@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Concours de Pêche - Live</title>
+    <title>Concours de Pêche</title>
     
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
@@ -30,17 +30,27 @@
             messagingSenderId: "376446532224",
             appId: "1:376446532224:web:4f9c1ffd2f4fe3ef450465"
         };
-        
-        // Initialisation
         firebase.initializeApp(firebaseConfig);
         const db = firebase.firestore();
 
         const { useState, useEffect } = React;
 
-        // Composant d'icône Lucide
+        // REMPLACEMENT DU STORAGE PAR FIREBASE
+        const storage = {
+            get: async (key) => {
+                const doc = await db.collection('competition').doc(key).get();
+                return { value: doc.exists ? JSON.stringify(doc.data().value) : null };
+            },
+            set: async (key, value) => {
+                await db.collection('competition').doc(key).set({ value: JSON.parse(value) });
+            }
+        };
+
         const Icon = ({ name, size = 24, className = "" }) => {
             useEffect(() => {
-                if (window.lucide) window.lucide.createIcons();
+                if (window.lucide) {
+                    window.lucide.createIcons();
+                }
             }, [name]);
             return <i data-lucide={name} style={{ width: size, height: size }} className={className}></i>;
         };
@@ -48,88 +58,129 @@
         const FishingContestApp = () => {
             const [currentPage, setCurrentPage] = useState('index');
             const [fishermen, setFishermen] = useState([]);
-            const [contestInfo, setContestInfo] = useState({ title: 'Concours de Pêche', date: '2025' });
-            const [loading, setLoading] = useState(true);
+            const [isLoaded, setIsLoaded] = useState(false);
+            const [contestInfo, setContestInfo] = useState({ title: 'Concours de Pêche 2x4', date: '21 avril 2025' });
 
-            // CONNEXION TEMPS RÉEL FIREBASE
             useEffect(() => {
-                const unsub = db.collection('competition').onSnapshot(snap => {
-                    snap.forEach(doc => {
-                        if (doc.id === 'data') setFishermen(doc.data().list || []);
-                        if (doc.id === 'settings') setContestInfo(doc.data().info || { title: 'Concours de Pêche', date: '2025' });
-                    });
-                    setLoading(false);
-                });
-                return () => unsub();
+                loadData();
+                loadContestInfo();
             }, []);
 
-            // SAUVEGARDE VERS FIREBASE
-            const saveToFirebase = (newList) => {
-                db.collection('competition').doc('data').set({ list: newList });
+            useEffect(() => {
+                if (isLoaded) {
+                    const timer = setTimeout(() => {
+                        saveData();
+                    }, 1000);
+                    return () => clearTimeout(timer);
+                }
+            }, [fishermen, isLoaded]);
+
+            const loadData = async () => {
+                try {
+                    const result = await storage.get('fishermen-list');
+                    if (result && result.value) {
+                        setFishermen(JSON.parse(result.value));
+                    }
+                } catch (error) {
+                    console.log('Initialisation des données');
+                } finally {
+                    setIsLoaded(true);
+                }
             };
 
-            const saveContestInfo = (info) => {
+            const loadContestInfo = async () => {
+                try {
+                    const result = await storage.get('contest-info');
+                    if (result && result.value) {
+                        setContestInfo(JSON.parse(result.value));
+                    }
+                } catch (error) {
+                    console.log('Infos par défaut');
+                }
+            };
+
+            const saveContestInfo = async (info) => {
                 setContestInfo(info);
-                db.collection('competition').doc('settings').set({ info });
+                try {
+                    await storage.set('contest-info', JSON.stringify(info));
+                } catch (error) {
+                    console.error('Erreur sauvegarde:', error);
+                }
+            };
+
+            const saveData = async () => {
+                try {
+                    await storage.set('fishermen-list', JSON.stringify(fishermen));
+                } catch (error) {
+                    console.error('Erreur de sauvegarde:', error);
+                }
             };
 
             const addFisherman = (nom, prenom, poste) => {
                 if (nom && prenom) {
-                    if (poste && fishermen.find(f => f.poste === poste)) {
-                        alert('Ce poste est déjà occupé !');
-                        return false;
+                    if (poste) {
+                        const exists = fishermen.find(f => f.poste === poste);
+                        if (exists) {
+                            alert('Ce poste est déjà occupé !');
+                            return false;
+                        }
                     }
-                    const newList = [...fishermen, { nom, prenom, poste: poste || null, weights: [] }];
-                    saveToFirebase(newList);
+                    setFishermen([...fishermen, { 
+                        nom, prenom, poste: poste || null, weights: [] 
+                    }]);
                     return true;
                 }
                 return false;
             };
 
-            const deleteFisherman = (index) => {
+            const assignPoste = (fishermanIndex, poste) => {
+                const exists = fishermen.find(f => f.poste === poste);
+                if (exists) {
+                    alert('Ce poste est déjà occupé !');
+                    return false;
+                }
+                const newFishermen = [...fishermen];
+                newFishermen[fishermanIndex].poste = poste;
+                setFishermen(newFishermen);
+                return true;
+            };
+
+            const deleteFisherman = (fishermanIndex) => {
                 if (window.confirm('Supprimer ce pêcheur ?')) {
-                    const newList = fishermen.filter((_, idx) => idx !== index);
-                    saveToFirebase(newList);
+                    setFishermen(fishermen.filter((_, idx) => idx !== fishermanIndex));
                 }
             };
 
             const addWeight = (poste, period, weight, fishCount) => {
-                const newList = fishermen.map(f => {
+                setFishermen(fishermen.map(f => {
                     if (f.poste === poste) {
-                        return { 
-                            ...f, 
-                            weights: [...(f.weights || []), { 
-                                period, 
-                                weight: parseFloat(weight) || 0, 
-                                fishCount: parseInt(fishCount) || 1,
-                                time: new Date().toISOString() 
-                            }] 
-                        };
+                        const weights = [...(f.weights || [])];
+                        weights.push({ 
+                            period, 
+                            weight: parseFloat(weight) || 0, 
+                            fishCount: parseInt(fishCount) || 1,
+                            time: new Date().toISOString() 
+                        });
+                        return { ...f, weights };
                     }
                     return f;
-                });
-                saveToFirebase(newList);
+                }));
             };
 
             const deleteWeight = (poste, index) => {
-                const newList = fishermen.map(f => {
+                setFishermen(fishermen.map(f => {
                     if (f.poste === poste) {
                         const weights = [...(f.weights || [])];
                         weights.splice(index, 1);
                         return { ...f, weights };
                     }
                     return f;
-                });
-                saveToFirebase(newList);
+                }));
             };
 
             const getTotalWeight = (f) => f.weights ? f.weights.reduce((sum, w) => sum + w.weight, 0) : 0;
             const getTotalFishCount = (f) => f.weights ? f.weights.reduce((sum, w) => sum + (w.fishCount || 0), 0) : 0;
             const getWeightByPeriod = (f, p) => f.weights ? f.weights.filter(w => w.period === p).reduce((sum, w) => sum + w.weight, 0) : 0;
-
-            if (loading) return <div className="h-screen flex items-center justify-center font-bold">Synchronisation Firebase...</div>;
-
-            // --- VUES (Exactement comme dans ton testprog.html) ---
 
             const IndexPage = () => (
                 <div className="min-h-screen p-4">
@@ -147,40 +198,68 @@
                         <button onClick={() => setCurrentPage('resultats')} className="bg-green-500 text-white font-bold py-6 px-4 rounded-lg shadow-lg">
                             <Icon name="trophy" className="mx-auto mb-2" /> Résultats
                         </button>
-                        {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14].map(num => {
-                            const f = fishermen.find(p => p.poste === num.toString());
-                            return (
-                                <button key={num} onClick={() => setCurrentPage(`poste${num}`)} 
-                                    className={`${f ? 'bg-blue-600 text-white' : 'bg-white text-blue-900'} border font-semibold py-4 px-4 rounded-lg shadow`}>
-                                    Poste {num} {f && `(${f.nom})`}
-                                </button>
-                            );
-                        })}
+                        {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14].map(num => (
+                            <button key={num} onClick={() => setCurrentPage(`poste${num}`)} className="bg-blue-200 text-blue-900 font-semibold py-4 px-4 rounded-lg shadow">
+                                Poste {num}
+                            </button>
+                        ))}
                     </div>
                 </div>
             );
 
             const InscriptionPage = () => {
                 const [form, setForm] = useState({ nom: '', prenom: '', poste: '' });
+                const withPoste = fishermen.filter(f => f.poste).sort((a, b) => parseInt(a.poste) - parseInt(b.poste));
+                const withoutPoste = fishermen.filter(f => !f.poste);
+
                 return (
                     <div className="min-h-screen p-4">
-                        <button onClick={() => setCurrentPage('index')} className="mb-4 flex items-center text-blue-600"><Icon name="arrow-left" size={20} className="mr-2" /> Retour</button>
-                        <h1 className="text-2xl font-bold mb-6">Inscription</h1>
+                        <button onClick={() => setCurrentPage('index')} className="mb-4 flex items-center text-blue-600">
+                            <Icon name="arrow-left" size={20} className="mr-2" /> Retour
+                        </button>
+                        <h1 className="text-2xl font-bold mb-6 text-blue-900">Inscription</h1>
                         <div className="bg-white p-6 rounded-lg shadow mb-6">
                             <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                                 <input placeholder="Nom" value={form.nom} onChange={e => setForm({...form, nom: e.target.value})} className="border p-2 rounded" />
                                 <input placeholder="Prénom" value={form.prenom} onChange={e => setForm({...form, prenom: e.target.value})} className="border p-2 rounded" />
-                                <input type="number" placeholder="Poste" value={form.poste} onChange={e => setForm({...form, poste: e.target.value})} className="border p-2 rounded" />
+                                <select value={form.poste} onChange={e => setForm({...form, poste: e.target.value})} className="border p-2 rounded">
+                                    <option value="">Poste (optionnel)</option>
+                                    {[...Array(14)].map((_, i) => (
+                                        <option key={i+1} value={i+1} disabled={fishermen.some(f => f.poste == i+1)}>Poste {i+1}</option>
+                                    ))}
+                                </select>
                                 <button onClick={() => { if(addFisherman(form.nom, form.prenom, form.poste)) setForm({nom:'', prenom:'', poste:''}) }} className="bg-blue-600 text-white font-bold p-2 rounded">Ajouter</button>
                             </div>
                         </div>
-                        <div className="bg-white rounded shadow">
-                            {fishermen.map((f, i) => (
-                                <div key={i} className="p-4 border-b flex justify-between items-center">
-                                    <span>Poste {f.poste} : <b>{f.nom} {f.prenom}</b></span>
-                                    <button onClick={() => deleteFisherman(i)} className="text-red-500">Supprimer</button>
+
+                        {withoutPoste.map((f, i) => (
+                            <div key={i} className="bg-orange-100 p-4 mb-2 flex justify-between items-center rounded">
+                                <span>{f.nom} {f.prenom}</span>
+                                <div className="flex gap-2">
+                                    <select onChange={e => assignPoste(fishermen.indexOf(f), e.target.value)} className="p-1 rounded">
+                                        <option value="">Assigner poste</option>
+                                        {[...Array(14)].map((_, i) => <option key={i+1} value={i+1} disabled={fishermen.some(fish => fish.poste == i+1)}>Poste {i+1}</option>)}
+                                    </select>
+                                    <button onClick={() => deleteFisherman(fishermen.indexOf(f))} className="bg-red-500 text-white px-2 rounded">X</button>
                                 </div>
-                            ))}
+                            </div>
+                        ))}
+
+                        <div className="bg-white rounded shadow overflow-hidden">
+                            <table className="w-full text-left">
+                                <thead className="bg-yellow-500">
+                                    <tr><th className="p-3">Poste</th><th className="p-3">Nom</th><th className="p-3">Actions</th></tr>
+                                </thead>
+                                <tbody>
+                                    {withPoste.map((f, i) => (
+                                        <tr key={i} className="border-b">
+                                            <td className="p-3 font-bold">Poste {f.poste}</td>
+                                            <td className="p-3">{f.nom} {f.prenom}</td>
+                                            <td className="p-3"><button onClick={() => deleteFisherman(fishermen.indexOf(f))} className="text-red-600">Supprimer</button></td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
                         </div>
                     </div>
                 );
@@ -195,7 +274,8 @@
                 if (!fisherman) return (
                     <div className="p-8 text-center">
                         <button onClick={() => setCurrentPage('index')} className="mb-4">Retour</button>
-                        <p>Aucun pêcheur au Poste {posteNum}.</p>
+                        <p className="mb-4">Aucun pêcheur ici.</p>
+                        <button onClick={() => setCurrentPage('inscription')} className="bg-blue-600 text-white p-2 rounded">Inscrire un pêcheur</button>
                     </div>
                 );
 
@@ -203,27 +283,33 @@
                     <div className="min-h-screen p-4">
                         <button onClick={() => setCurrentPage('index')} className="mb-4 flex items-center text-blue-600"><Icon name="arrow-left" size={20} className="mr-2" /> Retour</button>
                         <div className="bg-white p-6 rounded-lg shadow">
-                            <h1 className="text-2xl font-bold mb-4 text-blue-900">Poste {posteNum} : {fisherman.nom}</h1>
-                            <div className="bg-yellow-50 p-4 rounded mb-6 text-center">
-                                <div className="text-4xl font-black text-green-600">{getTotalWeight(fisherman).toFixed(3)} kg</div>
-                                <div className="text-gray-600">{getTotalFishCount(fisherman)} poissons</div>
+                            <h1 className="text-2xl font-bold mb-4">Poste {posteNum} : {fisherman.nom}</h1>
+                            <div className="grid grid-cols-2 gap-4 mb-6 bg-yellow-50 p-4 rounded">
+                                <div>Matin: {getWeightByPeriod(fisherman, 'matin').toFixed(3)} kg</div>
+                                <div>Après-midi: {getWeightByPeriod(fisherman, 'apres-midi').toFixed(3)} kg</div>
+                                <div className="font-bold text-green-600">Total: {getTotalWeight(fisherman).toFixed(3)} kg</div>
+                                <div className="font-bold">Poissons: {getTotalFishCount(fisherman)}</div>
                             </div>
                             <div className="flex gap-2 mb-6">
                                 <select value={period} onChange={e => setPeriod(e.target.value)} className="border p-2 rounded">
                                     <option value="matin">Matin</option>
                                     <option value="apres-midi">A-M</option>
                                 </select>
-                                <input type="number" step="0.001" placeholder="Poids" value={weight} onChange={e => setWeight(e.target.value)} className="border p-2 rounded flex-1" />
-                                <button onClick={() => { addWeight(posteNum, period, weight, count); setWeight(''); }} className="bg-green-600 text-white px-4 rounded font-bold">OK</button>
+                                <input type="number" step="0.001" placeholder="Poids" value={weight} onChange={e => setWeight(e.target.value)} className="border p-2 rounded w-24" />
+                                <input type="number" value={count} onChange={e => setCount(e.target.value)} className="border p-2 rounded w-16" />
+                                <button onClick={() => { addWeight(posteNum, period, weight, count); setWeight(''); }} className="bg-green-600 text-white px-4 rounded">Ajouter</button>
                             </div>
-                            <div className="space-y-2">
-                                {fisherman.weights && fisherman.weights.map((w, i) => (
-                                    <div key={i} className="flex justify-between border-b py-2 italic text-sm">
-                                        <span>{w.period} : {w.weight.toFixed(3)}kg</span>
-                                        <button onClick={() => deleteWeight(posteNum, i)} className="text-red-400">Suppr.</button>
-                                    </div>
-                                ))}
-                            </div>
+                            <table className="w-full border-t">
+                                <tbody>
+                                    {fisherman.weights.map((w, i) => (
+                                        <tr key={i} className="border-b">
+                                            <td className="p-2 capitalize">{w.period}</td>
+                                            <td className="p-2">{w.weight.toFixed(3)}kg ({w.fishCount})</td>
+                                            <td className="p-2 text-right"><button onClick={() => deleteWeight(posteNum, i)} className="text-red-500">X</button></td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
                         </div>
                     </div>
                 );
@@ -234,14 +320,23 @@
                 return (
                     <div className="min-h-screen p-4">
                         <button onClick={() => setCurrentPage('index')} className="mb-4 flex items-center text-blue-600"><Icon name="arrow-left" size={20} className="mr-2" /> Retour</button>
-                        <h1 className="text-2xl font-bold mb-6 text-center">CLASSEMENT LIVE</h1>
-                        <div className="space-y-2">
-                            {sorted.map((f, i) => (
-                                <div key={i} className="bg-white p-4 rounded-lg shadow flex justify-between items-center border-l-4 border-yellow-500">
-                                    <div><span className="font-bold">#{i+1}</span> {f.nom} (P{f.poste})</div>
-                                    <div className="font-bold text-green-600">{getTotalWeight(f).toFixed(3)} kg</div>
-                                </div>
-                            ))}
+                        <h1 className="text-2xl font-bold mb-4">Classement</h1>
+                        <div className="bg-white rounded-lg shadow overflow-hidden">
+                            <table className="w-full text-left">
+                                <thead className="bg-yellow-500 font-bold">
+                                    <tr><th className="p-3">Pos</th><th className="p-3">Pêcheur</th><th className="p-3">Total</th><th className="p-3">Nb</th></tr>
+                                </thead>
+                                <tbody>
+                                    {sorted.map((f, i) => (
+                                        <tr key={i} className={i < 3 ? "bg-yellow-50" : "border-b"}>
+                                            <td className="p-3 font-bold">{i + 1}</td>
+                                            <td className="p-3">{f.nom} (P{f.poste})</td>
+                                            <td className="p-3 font-bold text-green-600">{getTotalWeight(f).toFixed(3)} kg</td>
+                                            <td className="p-3">{getTotalFishCount(f)}</td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
                         </div>
                     </div>
                 );
@@ -255,9 +350,9 @@
                         <button onClick={() => setCurrentPage('index')} className="mb-4 flex items-center text-blue-600"><Icon name="arrow-left" size={20} className="mr-2" /> Retour</button>
                         <div className="bg-white p-6 rounded shadow">
                             <h2 className="text-xl font-bold mb-4">Paramètres</h2>
-                            <input className="border p-2 w-full mb-2" value={t} onChange={e => setT(e.target.value)} />
+                            <input className="border p-2 w-full mb-4" value={t} onChange={e => setT(e.target.value)} />
                             <input className="border p-2 w-full mb-4" value={d} onChange={e => setD(e.target.value)} />
-                            <button onClick={() => { saveContestInfo({title:t, date:d}); setCurrentPage('index'); }} className="bg-green-600 text-white p-3 w-full rounded font-bold">Enregistrer</button>
+                            <button onClick={() => { saveContestInfo({title:t, date:d}); setCurrentPage('index'); }} className="bg-green-600 text-white p-2 w-full rounded">Enregistrer</button>
                         </div>
                     </div>
                 );
