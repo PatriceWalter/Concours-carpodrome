@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Concours de Pêche Pro - Version Cloud</title>
+    <title>Concours de Pêche Pro</title>
     
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
@@ -11,32 +11,16 @@
     
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/lucide@latest"></script>
-    <style>
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap');
-        body { font-family: 'Inter', sans-serif; background-color: #f1f5f9; }
-        .modal-overlay { background-color: rgba(30, 58, 138, 0.4); backdrop-filter: blur(3px); }
-    </style>
 </head>
-<body>
+<body class="bg-blue-900 text-white font-sans">
 
-    <div id="app" class="max-w-6xl mx-auto p-4 md:p-8"></div>
-
-    <div id="modal-poste" class="hidden fixed inset-0 modal-overlay flex items-center justify-center z-50">
-        <div class="bg-white p-8 rounded-3xl shadow-2xl w-full max-w-sm mx-4 border-t-8 border-blue-600">
-            <h3 class="text-xl font-bold mb-2 text-blue-900">Assigner un poste</h3>
-            <p id="modal-fisher-name" class="text-blue-600 font-bold mb-6 text-lg"></p>
-            <select id="modal-select-poste" class="w-full border-2 border-slate-200 p-4 rounded-2xl mb-6 font-bold outline-none focus:border-blue-600 bg-slate-50"></select>
-            <div class="flex gap-3">
-                <button onclick="window.closePosteModal()" class="flex-1 bg-slate-100 py-4 rounded-2xl font-bold text-slate-500">Annuler</button>
-                <button onclick="window.confirmPosteAssignment()" class="flex-1 bg-blue-600 py-4 rounded-2xl font-bold text-white">Valider</button>
-            </div>
+    <div id="app" class="max-w-md mx-auto p-4">
         </div>
-    </div>
 
     <script>
-        // Ta configuration vérifiée sur ta console Firebase
+        // Ta config officielle récupérée de tes paramètres Firebase
         const firebaseConfig = {
-            apiKey: "AIzaSyB44m6DoeyQSNMctS0hKLpaPR5vNOTNsw0",
+            apiKey: "AIzaSyB44m6DoeyQSNMctS0hKLpaPR5vNOTNsw0", 
             authDomain: "concours-peche.firebaseapp.com",
             projectId: "concours-peche",
             storageBucket: "concours-peche.firebasestorage.app",
@@ -44,168 +28,45 @@
             appId: "1:376446532224:web:4f9c1ffd2f4fe3ef450465"
         };
 
-        // INITIALISATION (L'étape qui corrige l'erreur de clé)
+        // INITIALISATION CRUCIALE
         firebase.initializeApp(firebaseConfig);
         const db = firebase.firestore();
         const auth = firebase.auth();
 
-        window.state = {
-            user: null,
-            currentPage: 'login',
-            currentPoste: null,
-            fishermen: [],
-            contestInfo: { title: 'Concours de Pêche 2x4', date: '21 avril 2025' },
-            targetFisherIndex: null
-        };
-
-        // --- SYNCHRONISATION CLOUD ---
-        const save = async () => {
-            if (!window.state.user) return;
-            try {
-                await db.collection("concours").doc("data").set({
-                    fishermen: window.state.fishermen,
-                    contestInfo: window.state.contestInfo
-                });
-            } catch (e) { console.error("Erreur Cloud:", e); }
-        };
-
-        // --- AUTHENTIFICATION ---
-        window.login = async () => {
-            const email = document.getElementById('l_email').value;
-            const pass = document.getElementById('l_pass').value;
-            try {
-                await auth.signInWithEmailAndPassword(email, pass);
-            } catch (e) { alert("Erreur d'identification : " + e.message); }
-        };
-        window.logout = () => auth.signOut();
-
+        // Gestion de l'affichage
         auth.onAuthStateChanged((user) => {
-            window.state.user = user;
+            const root = document.getElementById('app');
             if (user) {
-                db.collection("concours").doc("data").onSnapshot((doc) => {
-                    if (doc.exists) {
-                        const d = doc.data();
-                        window.state.fishermen = d.fishermen || [];
-                        window.state.contestInfo = d.contestInfo || window.state.contestInfo;
-                    }
-                    window.state.currentPage = 'index';
-                    render();
-                });
+                // PAGE PRINCIPALE APRES CONNEXION
+                root.innerHTML = `
+                    <div class="text-center p-8 bg-white rounded-3xl shadow-xl text-blue-900">
+                        <h1 class="text-2xl font-black mb-4 uppercase">Concours Connecté</h1>
+                        <p class="mb-8 font-bold text-emerald-600">Bienvenue, ${user.email}</p>
+                        <button onclick="firebase.auth().signOut()" class="bg-red-500 text-white p-4 rounded-xl w-full font-bold">DÉCONNEXION</button>
+                    </div>`;
             } else {
-                window.state.currentPage = 'login';
-                render();
+                // PAGE DE CONNEXION
+                root.innerHTML = `
+                    <div class="bg-white p-8 rounded-[2rem] shadow-2xl text-blue-900 mt-20">
+                        <h2 class="text-3xl font-black mb-8 text-center uppercase tracking-tighter">Accès Concours</h2>
+                        <input id="email" type="email" placeholder="Email" class="w-full border-2 p-4 rounded-xl mb-4 font-bold outline-none border-blue-100 focus:border-blue-600">
+                        <input id="pass" type="password" placeholder="Mot de passe" class="w-full border-2 p-4 rounded-xl mb-6 font-bold outline-none border-blue-100 focus:border-blue-600">
+                        <button onclick="login()" class="w-full bg-blue-600 text-white font-black py-4 rounded-xl shadow-lg uppercase transition-transform active:scale-95">Se Connecter</button>
+                    </div>`;
             }
         });
 
-        // --- CALCULS ---
-        const calc = {
-            totalWeight: (f) => f.weights.reduce((s, w) => s + w.weight, 0),
-            fishCount: (f) => f.weights.reduce((s, w) => s + (w.fishCount || 0), 0),
-            biggestIndividualFish: (f) => {
-                const solo = f.weights.filter(w => parseInt(w.fishCount) === 1).map(w => w.weight);
-                return solo.length > 0 ? Math.max(...solo) : 0;
-            },
-            globalWeight: () => window.state.fishermen.reduce((acc, f) => acc + calc.totalWeight(f), 0),
-            globalFish: () => window.state.fishermen.reduce((acc, f) => acc + calc.fishCount(f), 0),
-            absoluteRecord: () => {
-                let winner = { weight: 0, name: 'N/A' };
-                window.state.fishermen.forEach(f => {
-                    const best = calc.biggestIndividualFish(f);
-                    if(best > winner.weight) winner = { weight: best, name: `${f.nom.toUpperCase()} ${f.prenom}` };
-                });
-                return winner;
+        // Fonction de connexion
+        window.login = async () => {
+            const email = document.getElementById('email').value;
+            const pass = document.getElementById('pass').value;
+            try {
+                await auth.signInWithEmailAndPassword(email, pass);
+            } catch (e) {
+                alert("Erreur de connexion : " + e.message);
+                console.error(e);
             }
         };
-
-        // --- NAVIGATION ET ACTIONS ---
-        window.nav = (p) => { window.state.currentPage = p; render(); };
-        window.openPoste = (n) => { 
-            const f = window.state.fishermen.find(f => f.poste == n);
-            if(f) {
-                window.state.currentPoste = n; 
-                window.state.currentPage = 'poste'; 
-            } else {
-                alert("Poste libre. Inscrivez un pêcheur d'abord.");
-                window.nav('inscription');
-            }
-            render(); 
-        };
-
-        window.addFisherman = () => {
-            const nom = document.getElementById('in_nom').value;
-            const prenom = document.getElementById('in_prenom').value;
-            const poste = document.getElementById('in_poste').value;
-            if(!nom || !prenom) return alert("Saisir nom et prénom");
-            window.state.fishermen.push({ nom, prenom, poste: poste ? parseInt(poste) : null, weights: [] });
-            save(); render();
-        };
-
-        window.addW = (pNum) => {
-            const f = window.state.fishermen.find(f => f.poste == pNum);
-            const w = parseFloat(document.getElementById('p_wei').value) || 0;
-            const c = parseInt(document.getElementById('p_cou').value) || 1;
-            const p = document.getElementById('p_per').value;
-            if(w <= 0) return alert("Poids invalide");
-            f.weights.push({ period: p, weight: w, fishCount: c });
-            save(); render();
-        };
-
-        window.delW = (idx) => {
-            const f = window.state.fishermen.find(f => f.poste == window.state.currentPoste);
-            f.weights.splice(idx, 1);
-            save(); render();
-        };
-
-        // --- RENDU DES PAGES ---
-        function render() {
-            const root = document.getElementById('app');
-            root.innerHTML = '';
-
-            if (window.state.currentPage === 'login') {
-                root.innerHTML = `<div class="flex items-center justify-center min-h-[80vh]"><div class="bg-white p-10 rounded-[2.5rem] shadow-2xl w-full max-w-md border"><h2 class="text-3xl font-black text-blue-900 mb-8 text-center uppercase tracking-tight">Accès Concours</h2><input id="l_email" type="email" placeholder="Email" class="w-full border-2 p-4 rounded-2xl mb-4 font-bold outline-none"><input id="l_pass" type="password" placeholder="Mot de passe" class="w-full border-2 p-4 rounded-2xl mb-6 font-bold outline-none"><button onclick="login()" class="w-full bg-blue-600 text-white font-black py-4 rounded-2xl shadow-lg uppercase">Entrer</button></div></div>`;
-                return;
-            }
-
-            if(window.state.currentPage === 'index') {
-                root.innerHTML = `
-                <div class="flex justify-between items-center mb-8">
-                    <button onclick="logout()" class="text-xs font-bold text-slate-400 uppercase">Quitter</button>
-                    <h1 class="text-3xl font-black text-blue-900 uppercase">${window.state.contestInfo.title}</h1>
-                    <div class="w-10"></div>
-                </div>
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-10 max-w-2xl mx-auto">
-                    <button onclick="nav('inscription')" class="p-6 bg-orange-500 text-white rounded-3xl shadow-lg font-black text-xl flex items-center justify-between">Inscriptions <i data-lucide="users"></i></button>
-                    <button onclick="nav('resultats')" class="p-6 bg-emerald-600 text-white rounded-3xl shadow-lg font-black text-xl flex items-center justify-between">Classement <i data-lucide="trophy"></i></button>
-                </div>
-                <div class="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-7 gap-4">
-                    ${Array.from({length: 14}, (_, i) => i + 1).map(n => {
-                        const occ = window.state.fishermen.find(f => f.poste == n);
-                        return `<button onclick="openPoste(${n})" class="p-6 rounded-3xl border-2 transition-all flex flex-col items-center ${occ ? 'bg-blue-900 border-blue-900 text-white shadow-md' : 'bg-white border-white text-blue-800 shadow-sm'}"><span class="text-[10px] font-black uppercase opacity-50 mb-1">Poste</span><span class="text-3xl font-black mb-1">${n}</span><span class="text-[10px] truncate w-full text-center font-bold uppercase">${occ ? occ.nom : 'LIBRE'}</span></button>`;
-                    }).join('')}
-                </div>`;
-            } else if (window.state.currentPage === 'resultats') {
-                const sorted = [...window.state.fishermen].filter(f => f.poste).sort((a,b) => calc.totalWeight(b) - calc.totalWeight(a));
-                root.innerHTML = `<button onclick="nav('index')" class="mb-6 flex items-center text-blue-600 font-bold"><i data-lucide="arrow-left" class="mr-2"></i> Retour</button>
-                <div class="bg-white rounded-3xl shadow-xl overflow-hidden border">
-                    <table class="w-full text-left">
-                        <thead class="bg-blue-900 text-white text-[10px] uppercase font-black"><tr><th class="p-6">Rang</th><th class="p-6">Pêcheur</th><th class="p-6 text-center">Poste</th><th class="p-6 text-right">Total</th></tr></thead>
-                        <tbody>${sorted.map((f, i) => `<tr class="border-b"><td class="p-6 font-black">${i+1}</td><td class="p-6 font-black uppercase">${f.nom} ${f.prenom}</td><td class="p-6 text-center">${f.poste}</td><td class="p-6 text-right font-black text-xl text-blue-600">${calc.totalWeight(f).toFixed(3)} kg</td></tr>`).join('')}</tbody>
-                    </table>
-                </div>`;
-            } else if (window.state.currentPage === 'inscription') {
-                root.innerHTML = `<button onclick="nav('index')" class="mb-6 flex items-center text-blue-600 font-bold"><i data-lucide="arrow-left" class="mr-2"></i> Retour</button>
-                <div class="bg-white p-8 rounded-3xl shadow-xl max-w-lg mx-auto border"><h2 class="text-xl font-black mb-6 uppercase text-blue-900">Nouvel Inscrit</h2><div class="space-y-4"><input id="in_nom" placeholder="NOM" class="w-full border-2 p-4 rounded-2xl font-bold uppercase"><input id="in_prenom" placeholder="PRÉNOM" class="w-full border-2 p-4 rounded-2xl font-bold capitalize"><select id="in_poste" class="w-full border-2 p-4 rounded-2xl font-bold">${Array.from({length: 14}, (_, i) => i + 1).map(n => `<option value="${n}">Poste ${n}</option>`).join('')}</select><button onclick="addFisherman()" class="w-full bg-blue-600 text-white font-black py-4 rounded-2xl uppercase shadow-lg">Enregistrer</button></div></div>`;
-            } else if (window.state.currentPage === 'poste') {
-                const f = window.state.fishermen.find(f => f.poste == window.state.currentPoste);
-                root.innerHTML = `<button onclick="nav('index')" class="mb-6 flex items-center text-blue-600 font-bold"><i data-lucide="arrow-left" class="mr-2"></i> Accueil</button>
-                <div class="bg-white p-8 rounded-3xl shadow-lg border-l-8 border-blue-600 mb-6 flex justify-between items-end"><div><h1 class="text-3xl font-black text-blue-900">POSTE ${window.state.currentPoste}</h1><p class="text-xl font-bold text-slate-500 uppercase">${f.nom} ${f.prenom}</p></div><div class="text-right text-3xl font-black text-blue-800">${calc.totalWeight(f).toFixed(3)} kg</div></div>
-                <div class="bg-white p-8 rounded-3xl border mb-6"><div class="grid grid-cols-1 sm:grid-cols-4 gap-4"><select id="p_per" class="border-2 p-4 rounded-2xl font-bold"><option value="matin">Matin</option><option value="apres-midi">Après-midi</option></select><input id="p_wei" type="number" step="0.001" placeholder="Poids (kg)" class="border-2 p-4 rounded-2xl font-bold"><input id="p_cou" type="number" value="1" class="border-2 p-4 rounded-2xl font-bold"><button onclick="addW(${window.state.currentPoste})" class="bg-blue-600 text-white font-black py-4 rounded-2xl uppercase">Ajouter</button></div></div>
-                <div class="bg-white rounded-3xl border overflow-hidden shadow-sm"><table class="w-full text-left"><thead class="bg-slate-50 text-[10px] uppercase font-black"><tr><th class="p-4">Période</th><th class="p-4 text-right">Poids</th><th class="p-4 text-center">Action</th></tr></thead><tbody>${f.weights.slice().reverse().map((w, idx) => `<tr class="border-t"><td class="p-4 capitalize font-bold">${w.period}</td><td class="p-4 text-right font-black">${w.weight.toFixed(3)} kg</td><td class="p-4 text-center"><button onclick="delW(${f.weights.length-1-idx})" class="text-red-400">Effacer</button></td></tr>`).join('')}</tbody></table></div>`;
-            }
-            lucide.createIcons();
-        }
-
-        render();
     </script>
 </body>
 </html>
