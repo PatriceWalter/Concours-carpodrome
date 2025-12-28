@@ -379,3 +379,10 @@
             const p = document.getElementById('modal-select-poste').value;
             if(!p) return;
             state.fishermen[state.targetFisherIndex].poste = parseInt(p);
+            await saveToFirebase(); closePosteModal(); render();
+        };
+
+        render();
+    </script>
+</body>
+</html>
