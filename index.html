@@ -21,9 +21,9 @@
 
     <div id="modal-poste" class="hidden fixed inset-0 modal-overlay flex items-center justify-center z-50">
         <div class="bg-white p-8 rounded-3xl shadow-2xl w-full max-w-sm mx-4 border-t-8 border-blue-600">
-            <h3 class="text-xl font-bold mb-2 text-blue-900">Assigner un poste</h3>
+            <h3 class="text-xl font-bold mb-2 text-blue-900 uppercase">Assigner un poste</h3>
             <p id="modal-fisher-name" class="text-blue-600 font-bold mb-6 text-lg"></p>
-            <select id="modal-select-poste" class="w-full border-2 border-slate-200 p-4 rounded-2xl mb-6 font-bold outline-none focus:border-blue-600 bg-slate-50"></select>
+            <select id="modal-select-poste" class="w-full border-2 border-slate-100 p-4 rounded-2xl mb-6 font-bold outline-none focus:border-blue-600 bg-slate-50 uppercase"></select>
             <div class="flex gap-3">
                 <button onclick="closePosteModal()" class="flex-1 bg-slate-100 py-4 rounded-2xl font-bold text-slate-500">Annuler</button>
                 <button onclick="confirmPosteAssignment()" class="flex-1 bg-blue-600 py-4 rounded-2xl font-bold text-white uppercase">Valider</button>
@@ -45,12 +45,11 @@
             isLoggedIn: sessionStorage.getItem('auth_peche') === 'true',
             currentPage: 'index',
             currentPoste: null,
-            currentType: null, // 'carpo' ou 'feeder'
-            fishermen: [], // Tous les pêcheurs avec un champ 'type'
+            currentType: null,
+            fishermen: [],
             targetFisherIndex: null
         };
 
-        // SYNCHRO FIREBASE
         db.collection("data").doc("double-concours").onSnapshot(doc => {
             if(doc.exists) {
                 state.fishermen = doc.data().fishermen || [];
@@ -65,62 +64,50 @@
         window.login = () => {
             if(document.getElementById('l_id').value === "aappma" && document.getElementById('l_mdp').value === "123") {
                 state.isLoggedIn = true; sessionStorage.setItem('auth_peche', 'true'); render();
-            } else { alert("Erreur identifiants"); }
+            } else { alert("Erreur"); }
         };
 
-        // LOGIQUE DE CALCUL
         const calc = {
             totalWeight: (f) => (f.weights || []).reduce((s, w) => s + w.weight, 0),
             periodWeight: (f, p) => (f.weights || []).filter(w => w.period === p).reduce((s, w) => s + w.weight, 0),
             fishCount: (f) => (f.weights || []).reduce((s, w) => s + (w.fishCount || 0), 0)
         };
 
-        // NAVIGATION
         window.nav = (p) => { state.currentPage = p; render(); };
         window.openPoste = (n, type) => { state.currentPoste = n; state.currentType = type; state.currentPage = 'poste'; render(); };
 
-        // RENDU PRINCIPAL
         function render() {
             const root = document.getElementById('app');
-            root.innerHTML = '';
-
             if(!state.isLoggedIn) {
-                root.innerHTML = `<div class="min-h-[60vh] flex items-center justify-center"><div class="bg-white p-10 rounded-[2.5rem] shadow-xl w-full max-w-sm border border-blue-50">
+                root.innerHTML = `<div class="min-h-[60vh] flex items-center justify-center"><div class="bg-white p-10 rounded-[2.5rem] shadow-xl w-full max-w-sm border">
                 <h2 class="text-2xl font-black mb-6 text-center text-blue-900 uppercase">Accès</h2>
-                <input id="l_id" placeholder="IDENTIFIANT" class="w-full p-4 border-2 border-slate-100 rounded-2xl mb-4 font-bold bg-slate-50"><input id="l_mdp" type="password" placeholder="MOT DE PASSE" class="w-full p-4 border-2 border-slate-100 rounded-2xl mb-6 font-bold bg-slate-50">
-                <button onclick="login()" class="w-full bg-blue-600 text-white font-black py-4 rounded-2xl shadow-lg">ENTRER</button></div></div>`;
+                <input id="l_id" placeholder="ID" class="w-full p-4 border rounded-xl mb-4 font-bold bg-slate-50"><input id="l_mdp" type="password" placeholder="PASS" class="w-full p-4 border rounded-xl mb-6 font-bold bg-slate-50">
+                <button onclick="login()" class="w-full bg-blue-600 text-white font-black py-4 rounded-xl shadow-lg">ENTRER</button></div></div>`;
                 return;
             }
 
             if(state.currentPage === 'index') {
                 root.innerHTML = `
-                    <div class="mb-16">
-                        <div class="text-center mb-8">
-                            <h1 class="text-4xl font-black text-blue-900 uppercase tracking-tighter">Concours Carpodrome</h1>
-                            <div class="inline-block px-6 py-2 bg-blue-600 text-white rounded-full font-bold text-xs mt-2 uppercase">14 Postes</div>
-                        </div>
-                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8 max-w-2xl mx-auto">
-                            <button onclick="nav('inscription')" class="p-6 bg-orange-500 text-white rounded-3xl shadow-lg font-black text-2xl flex items-center justify-between">Inscriptions <i data-lucide="users"></i></button>
-                            <button onclick="nav('resultats')" class="p-6 bg-emerald-600 text-white rounded-3xl shadow-lg font-black text-2xl flex items-center justify-between">Classement <i data-lucide="trophy"></i></button>
-                        </div>
-                        <div class="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-7 gap-3">
-                            ${renderGrid(14, 'carpo')}
-                        </div>
+                    <div class="text-center mb-8">
+                        <h1 class="text-5xl font-black text-blue-900 uppercase italic">DOUBLE CONCOURS</h1>
+                    </div>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-12 max-w-3xl mx-auto">
+                        <button onclick="nav('inscription')" class="p-8 bg-orange-500 text-white rounded-[2.5rem] shadow-xl font-black text-3xl flex items-center justify-between">Inscriptions <i data-lucide="users"></i></button>
+                        <button onclick="nav('resultats')" class="p-8 bg-emerald-600 text-white rounded-[2.5rem] shadow-xl font-black text-3xl flex items-center justify-between">Classement <i data-lucide="trophy"></i></button>
                     </div>
 
-                    <hr class="border-t-4 border-slate-200 mb-16 border-dashed">
+                    <h2 class="text-2xl font-black text-blue-900 mb-4 uppercase">Carpodrome (14 postes)</h2>
+                    <div class="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-7 gap-4 mb-12">
+                        ${renderGrid(14, 'carpo')}
+                    </div>
 
-                    <div class="mb-12">
-                        <div class="text-center mb-8">
-                            <h1 class="text-4xl font-black text-blue-900 uppercase tracking-tighter">Concours Feeder</h1>
-                            <div class="inline-block px-6 py-2 bg-blue-900 text-white rounded-full font-bold text-xs mt-2 uppercase">10 Postes</div>
-                        </div>
-                        <div class="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-5 gap-3">
-                            ${renderGrid(10, 'feeder')}
-                        </div>
+                    <h2 class="text-2xl font-black text-blue-900 mb-4 uppercase">Feeder (10 postes)</h2>
+                    <div class="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-5 gap-4">
+                        ${renderGrid(10, 'feeder')}
                     </div>
                 `;
-            } else if(state.currentPage === 'inscription') renderInscription(root);
+            } 
+            else if(state.currentPage === 'inscription') renderInscription(root);
             else if(state.currentPage === 'resultats') renderResultats(root);
             else if(state.currentPage === 'poste') renderPoste(root);
             
@@ -129,36 +116,98 @@
 
         function renderGrid(count, type) {
             return Array.from({length: count}, (_, i) => i + 1).map(n => {
-                const occ = state.fishermen.find(f => f.poste == n && f.type === type);
+                const f = state.fishermen.find(x => x.poste == n && x.type === type);
                 return `
-                <button onclick="openPoste(${n}, '${type}')" class="p-5 rounded-3xl border-2 transition-all flex flex-col items-center ${occ ? (type === 'carpo' ? 'bg-blue-900' : 'bg-slate-800') + ' border-transparent text-white shadow-lg' : 'bg-white border-white text-blue-800 shadow-sm'}">
-                    <span class="text-[9px] font-black uppercase opacity-50">Poste</span>
-                    <span class="text-2xl font-black">${n}</span>
-                    <span class="text-[9px] truncate w-full text-center font-bold uppercase">${occ ? occ.nom : 'LIBRE'}</span>
+                <button onclick="${f ? `openPoste(${n}, '${type}')` : ''}" class="p-6 rounded-3xl border-2 transition-all flex flex-col items-center ${f ? 'bg-blue-900 border-blue-900 text-white shadow-xl' : 'bg-white border-white text-blue-800 opacity-80'}">
+                    <span class="text-[10px] font-black uppercase opacity-50">Poste</span><span class="text-3xl font-black mb-1">${n}</span>
+                    <span class="text-[10px] font-bold uppercase truncate w-full text-center">${f ? f.nom : 'LIBRE'}</span>
                 </button>`;
             }).join('');
         }
 
+        function renderInscription(container) {
+            container.innerHTML = `
+                <button onclick="nav('index')" class="mb-8 flex items-center text-blue-600 font-bold italic underline"><i data-lucide="arrow-left" class="mr-2"></i> Retour Accueil</button>
+                <div class="bg-white p-8 rounded-[2.5rem] shadow-xl border mb-10">
+                    <h2 class="text-2xl font-black text-blue-900 uppercase mb-6">Nouvelle Inscription</h2>
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+                        <input id="in_nom" placeholder="NOM" class="p-4 border-2 border-slate-100 rounded-2xl font-bold uppercase bg-slate-50 focus:border-blue-600 outline-none">
+                        <input id="in_prenom" placeholder="Prénom" class="p-4 border-2 border-slate-100 rounded-2xl font-bold bg-slate-50 focus:border-blue-600 outline-none">
+                        <select id="in_type" class="p-4 border-2 border-slate-100 rounded-2xl font-bold bg-slate-50 uppercase">
+                            <option value="carpo">Carpodrome</option>
+                            <option value="feeder">Feeder</option>
+                        </select>
+                        <select id="in_poste" class="p-4 border-2 border-slate-100 rounded-2xl font-bold bg-slate-50 uppercase">
+                            <option value="">En attente de poste</option>
+                        </select>
+                    </div>
+                    <button onclick="addFisherman()" class="w-full bg-blue-900 text-white font-black py-5 rounded-2xl shadow-xl uppercase">Enregistrer</button>
+                </div>
+                
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                    <div>
+                        <h3 class="text-sm font-black text-slate-400 uppercase mb-4 tracking-widest">Attente Carpo</h3>
+                        <div class="space-y-3">${renderWaiting('carpo')}</div>
+                        <h3 class="text-sm font-black text-slate-400 uppercase mt-8 mb-4 tracking-widest">Attente Feeder</h3>
+                        <div class="space-y-3">${renderWaiting('feeder')}</div>
+                    </div>
+                    <div>
+                        <h3 class="text-sm font-black text-slate-400 uppercase mb-4 tracking-widest">Postes Occupés</h3>
+                        <div class="space-y-3">${state.fishermen.filter(f => f.poste).sort((a,b) => a.poste - b.poste).map(f => `
+                            <div class="bg-white p-5 rounded-3xl border flex justify-between items-center shadow-sm">
+                                <div><div class="text-blue-600 font-black text-xs uppercase">Poste ${f.poste} (${f.type})</div><div class="font-black text-blue-900 uppercase">${f.nom} ${f.prenom}</div></div>
+                                <button onclick="delFisher(${f.poste}, '${f.type}')" class="text-red-200 hover:text-red-500"><i data-lucide="trash-2"></i></button>
+                            </div>`).join('')}
+                        </div>
+                    </div>
+                </div>`;
+        }
+
+        function renderWaiting(type) {
+            return state.fishermen.filter(f => !f.poste && f.type === type).map(f => `
+                <div class="bg-white p-5 rounded-3xl border border-slate-100 flex justify-between items-center shadow-sm">
+                    <div class="font-black text-blue-900 uppercase">${f.nom}</div>
+                    <button onclick="openPosteModal('${f.nom} ${f.prenom}', '${type}')" class="bg-blue-50 text-blue-600 px-6 py-3 rounded-2xl font-black text-xs uppercase hover:bg-blue-600 hover:text-white transition-all">Assigner</button>
+                </div>`).join('');
+        }
+
+        window.openPosteModal = (n, type) => {
+            state.targetFisherIndex = state.fishermen.findIndex(f => `${f.nom} ${f.prenom}` === n && f.type === type);
+            state.currentType = type;
+            document.getElementById('modal-fisher-name').innerText = n + " (" + type + ")";
+            const sel = document.getElementById('modal-select-poste');
+            sel.innerHTML = '<option value="">Choisir un poste...</option>';
+            const max = type === 'carpo' ? 14 : 10;
+            for(let i=1; i<=max; i++) if(!state.fishermen.find(f => f.poste == i && f.type === type)) sel.innerHTML += `<option value="${i}">Poste ${i}</option>`;
+            document.getElementById('modal-poste').classList.remove('hidden');
+        };
+
+        window.confirmPosteAssignment = () => {
+            const p = document.getElementById('modal-select-poste').value;
+            if(!p) return;
+            state.fishermen[state.targetFisherIndex].poste = parseInt(p);
+            save(); document.getElementById('modal-poste').classList.add('hidden');
+        };
+
         function renderResultats(container) {
-            const renderTable = (type, title) => {
+            const table = (type, title) => {
                 const sorted = [...state.fishermen].filter(f => f.poste && f.type === type).sort((a,b) => calc.totalWeight(b) - calc.totalWeight(a));
                 return `
                 <div class="mb-12">
-                    <h2 class="text-2xl font-black text-blue-900 uppercase mb-6 pl-4 border-l-8 border-blue-600">${title}</h2>
-                    <div class="bg-white rounded-[2.5rem] shadow-xl overflow-hidden border">
+                    <h2 class="text-3xl font-black text-blue-900 uppercase mb-6 tracking-tighter italic border-l-8 border-blue-600 pl-4">${title}</h2>
+                    <div class="bg-white rounded-[2.5rem] shadow-xl border overflow-hidden">
                         <table class="w-full text-left">
-                            <thead class="bg-blue-900 text-white text-[10px] uppercase font-black">
-                                <tr><th class="p-6">Rang</th><th class="p-6">Pêcheur</th><th class="p-6">Poste</th><th class="p-6">Matin</th><th class="p-6 uppercase">Après-midi</th><th class="p-6 text-right">Poids Total</th></tr>
+                            <thead class="bg-blue-900 text-white text-[10px] uppercase font-black tracking-widest">
+                                <tr><th class="p-6">Rang</th><th class="p-6">Pêcheur</th><th class="p-6">Matin</th><th class="p-6">Après-midi</th><th class="p-6 text-right">Poids Total</th></tr>
                             </thead>
                             <tbody>
                                 ${sorted.map((f, i) => `
-                                <tr class="border-b border-slate-50 last:border-0">
-                                    <td class="p-6"><span class="w-10 h-10 flex items-center justify-center rounded-xl font-black ${i===0?'bg-yellow-400 text-white':i===1?'bg-slate-300 text-white':i===2?'bg-orange-400 text-white':'bg-slate-100 text-slate-400'}">${i+1}</span></td>
-                                    <td class="p-6 font-black text-blue-900 uppercase">${f.nom} ${f.prenom}</td>
-                                    <td class="p-6"><span class="px-3 py-1 bg-slate-100 rounded-lg font-black text-slate-500 text-xs">P-${f.poste}</span></td>
-                                    <td class="p-6 font-bold text-slate-500">${calc.periodWeight(f, 'matin').toFixed(3)} kg</td>
-                                    <td class="p-6 font-bold text-slate-500">${calc.periodWeight(f, 'apres-midi').toFixed(3)} kg</td>
-                                    <td class="p-6 text-right font-black text-blue-900 text-xl">${calc.totalWeight(f).toFixed(3)} kg</td>
+                                <tr class="border-b border-slate-50 last:border-0 hover:bg-blue-50/50">
+                                    <td class="p-6"><span class="w-12 h-12 flex items-center justify-center rounded-2xl font-black text-xl ${i===0?'bg-yellow-400 text-white shadow-lg':i===1?'bg-slate-300 text-white':i===2?'bg-orange-400 text-white':'bg-slate-100 text-slate-400'}">${i+1}</span></td>
+                                    <td class="p-6"><div class="font-black text-blue-900 uppercase text-lg">${f.nom}</div><div class="text-[10px] font-bold text-blue-400 uppercase tracking-widest">Poste ${f.poste}</div></td>
+                                    <td class="p-6 font-bold text-slate-500 text-xs uppercase">${calc.periodWeight(f, 'matin').toFixed(3)} kg</td>
+                                    <td class="p-6 font-bold text-slate-500 text-xs uppercase">${calc.periodWeight(f, 'apres-midi').toFixed(3)} kg</td>
+                                    <td class="p-6 text-right font-black text-2xl text-blue-900 tracking-tighter">${calc.totalWeight(f).toFixed(3)}<span class="text-xs ml-1 opacity-40">kg</span></td>
                                 </tr>`).join('')}
                             </tbody>
                         </table>
@@ -167,93 +216,69 @@
             };
 
             container.innerHTML = `
-                <button onclick="nav('index')" class="mb-8 flex items-center text-blue-600 font-bold"><i data-lucide="arrow-left" class="mr-2"></i> Retour Accueil</button>
-                ${renderTable('carpo', 'Classement Carpodrome')}
-                ${renderTable('feeder', 'Classement Feeder')}
+                <button onclick="nav('index')" class="mb-8 flex items-center text-blue-600 font-bold italic underline"><i data-lucide="arrow-left" class="mr-2"></i> Retour Accueil</button>
+                ${table('carpo', 'Classement Carpodrome')}
+                ${table('feeder', 'Classement Feeder')}
             `;
         }
 
-        // --- AUTRES FONCTIONS (ADAPTÉES POUR LE TYPE) ---
         window.addFisherman = () => {
             const nom = document.getElementById('in_nom').value.toUpperCase();
             const prenom = document.getElementById('in_prenom').value;
+            const type = document.getElementById('in_type').value;
             const poste = document.getElementById('in_poste').value;
-            const type = document.getElementById('in_type').value;
-            if(!nom || !prenom || !type) return alert("Nom, Prénom et Type requis");
+            if(!nom || !prenom) return alert("Nom et Prénom requis");
             state.fishermen.push({ nom, prenom, type, poste: poste ? parseInt(poste) : null, weights: [] });
-            save(); render();
+            save();
         };
 
-        function renderInscription(container) {
-            container.innerHTML = `
-                <button onclick="nav('index')" class="mb-8 flex items-center text-blue-600 font-bold"><i data-lucide="arrow-left" class="mr-2"></i> Retour</button>
-                <div class="bg-white p-8 rounded-[2.5rem] shadow-xl border mb-10">
-                    <h2 class="text-2xl font-black text-blue-900 uppercase mb-6">Nouvelle Inscription</h2>
-                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-                        <input id="in_nom" placeholder="NOM" class="p-4 border-2 border-slate-100 rounded-2xl font-bold uppercase">
-                        <input id="in_prenom" placeholder="Prénom" class="p-4 border-2 border-slate-100 rounded-2xl font-bold">
-                        <select id="in_type" onchange="updatePosteDropdown()" class="p-4 border-2 border-slate-100 rounded-2xl font-bold uppercase">
-                            <option value="">-- Choisir Concours --</option>
-                            <option value="carpo">Carpodrome</option>
-                            <option value="feeder">Feeder</option>
-                        </select>
-                        <select id="in_poste" class="p-4 border-2 border-slate-100 rounded-2xl font-bold uppercase"><option value="">Poste non défini</option></select>
-                    </div>
-                    <button onclick="addFisherman()" class="w-full bg-blue-900 text-white font-black py-5 rounded-2xl shadow-xl uppercase">Enregistrer</button>
-                </div>`;
-        }
-
-        window.updatePosteDropdown = () => {
-            const type = document.getElementById('in_type').value;
-            const sel = document.getElementById('in_poste');
-            sel.innerHTML = '<option value="">Poste non défini</option>';
-            const count = (type === 'carpo') ? 14 : 10;
-            for(let i=1; i<=count; i++) {
-                const occ = state.fishermen.find(f => f.poste == i && f.type === type);
-                sel.innerHTML += `<option value="${i}" ${occ ? 'disabled' : ''}>Poste ${i} ${occ ? '(Occupé)' : ''}</option>`;
-            }
-        };
+        window.delFisher = (p, type) => { if(confirm("Supprimer ?")) { state.fishermen = state.fishermen.filter(f => !(f.poste == p && f.type === type)); save(); } };
+        window.closePosteModal = () => document.getElementById('modal-poste').classList.add('hidden');
 
         function renderPoste(container) {
             const f = state.fishermen.find(f => f.poste == state.currentPoste && f.type === state.currentType);
             if(!f) return nav('index');
             container.innerHTML = `
-                <button onclick="nav('index')" class="mb-8 flex items-center text-blue-600 font-bold"><i data-lucide="arrow-left" class="mr-2"></i> Retour Accueil</button>
-                <div class="bg-white p-8 rounded-3xl shadow-lg border-l-8 border-blue-600 mb-6 flex justify-between items-end">
-                    <div><h1 class="text-4xl font-black text-blue-900 uppercase">Poste ${state.currentPoste} - ${state.currentType}</h1><p class="text-2xl font-bold text-slate-500 uppercase">${f.nom} ${f.prenom}</p></div>
-                    <div class="text-right bg-blue-50 p-6 rounded-[2rem] border border-blue-100 shadow-inner">
-                        <span class="block text-xs font-black text-blue-600 uppercase mb-1">Total Actuel</span>
-                        <span class="text-4xl font-black text-blue-800">${calc.totalWeight(f).toFixed(3)} <small class="text-lg">kg</small></span>
+                <button onclick="nav('index')" class="mb-8 flex items-center text-blue-600 font-bold italic underline"><i data-lucide="arrow-left" class="mr-2"></i> Retour</button>
+                <div class="bg-white p-8 rounded-[2.5rem] shadow-xl border-l-8 border-blue-600 mb-6 flex justify-between items-end">
+                    <div><h1 class="text-4xl font-black text-blue-900 uppercase">Poste ${state.currentPoste} <span class="text-sm opacity-30">(${state.currentType})</span></h1><p class="text-2xl font-bold text-slate-400 uppercase">${f.nom} ${f.prenom}</p></div>
+                    <div class="bg-blue-50 p-6 rounded-[2rem] text-right border border-blue-100 shadow-inner">
+                        <span class="block text-[10px] font-black text-blue-400 uppercase mb-1">Total Actuel</span>
+                        <span class="text-4xl font-black text-blue-800">${calc.totalWeight(f).toFixed(3)}<span class="text-lg ml-1">kg</span></span>
                     </div>
                 </div>
-                <div class="bg-white p-8 rounded-3xl shadow-sm border mb-8 grid grid-cols-1 md:grid-cols-4 gap-4">
-                    <select id="p_per" class="p-4 border-2 border-slate-100 rounded-2xl font-bold"><option value="matin">Matin</option><option value="apres-midi">Après-midi</option></select>
-                    <input id="p_wei" type="number" step="0.001" placeholder="Poids (kg)" class="p-4 border-2 border-slate-100 rounded-2xl font-bold">
-                    <input id="p_cou" type="number" value="1" class="p-4 border-2 border-slate-100 rounded-2xl font-bold">
-                    <button onclick="addW(${state.currentPoste}, '${state.currentType}')" class="bg-blue-600 text-white font-black py-4 rounded-2xl shadow-xl uppercase">Valider</button>
+                <div class="bg-white p-8 rounded-[2.5rem] shadow-sm border mb-8 grid grid-cols-1 sm:grid-cols-4 gap-4">
+                    <select id="p_per" class="p-4 border-2 border-slate-100 rounded-2xl font-bold bg-slate-50 outline-none uppercase"><option value="matin">Matin</option><option value="apres-midi">Après-midi</option></select>
+                    <input id="p_wei" type="number" step="0.001" placeholder="Poids (kg)" class="p-4 border-2 border-slate-100 rounded-2xl font-bold bg-slate-50 outline-none">
+                    <input id="p_cou" type="number" value="1" class="p-4 border-2 border-slate-100 rounded-2xl font-bold bg-slate-50 outline-none">
+                    <button onclick="addWeight()" class="bg-blue-600 text-white font-black py-4 rounded-2xl shadow-lg uppercase">Valider</button>
                 </div>
-                <div class="bg-white rounded-3xl shadow-xl border overflow-hidden">
-                    <table class="w-full text-left"><thead class="bg-slate-50 text-[10px] uppercase font-black"><tr><th class="p-6">Période</th><th class="p-6">Poids</th><th class="p-6"></th></tr></thead><tbody>
-                    ${(f.weights || []).slice().reverse().map((w, i) => `<tr><td class="p-6 font-bold uppercase text-xs">${w.period}</td><td class="p-6 font-black text-lg">${w.weight.toFixed(3)} kg</td><td class="p-6"><button onclick="delW(${f.weights.length-1-i})" class="text-red-300"><i data-lucide="trash-2"></i></button></td></tr>`).join('')}
+                <div class="bg-white rounded-[2.5rem] shadow-sm border overflow-hidden">
+                    <table class="w-full text-left"><thead class="bg-slate-50 text-slate-400 font-black uppercase text-[10px] tracking-widest"><tr><th class="p-6">Période</th><th class="p-6 text-right">Poids pesé</th><th class="p-6"></th></tr></thead><tbody>
+                    ${(f.weights || []).slice().reverse().map((w, idx) => `
+                        <tr class="border-t border-slate-50 hover:bg-slate-50/50 transition-colors">
+                            <td class="p-6 font-bold text-blue-900 uppercase text-xs">${w.period}</td>
+                            <td class="p-6 text-right font-black text-blue-900 text-lg">${w.weight.toFixed(3)} kg</td>
+                            <td class="p-6 text-center"><button onclick="delWeight(${f.weights.length-1-idx})" class="p-2 text-red-200 hover:text-red-500 transition-colors"><i data-lucide="trash-2"></i></button></td>
+                        </tr>`).join('')}
                     </tbody></table>
                 </div>`;
         }
 
-        window.addW = (pNum, type) => {
-            const f = state.fishermen.find(f => f.poste == pNum && f.type === type);
-            const w = parseFloat(document.getElementById('p_wei').value) || 0;
-            const c = parseInt(document.getElementById('p_cou').value) || 0;
+        window.addWeight = () => {
+            const f = state.fishermen.find(f => f.poste == state.currentPoste && f.type === state.currentType);
+            const w = parseFloat(document.getElementById('p_wei').value);
             const p = document.getElementById('p_per').value;
-            if(w <= 0) return;
-            if(!f.weights) f.weights = [];
+            const c = parseInt(document.getElementById('p_cou').value);
+            if(!w) return alert("Poids requis");
             f.weights.push({ period: p, weight: w, fishCount: c });
-            save(); render();
+            save();
         };
 
-        window.delW = (idx) => {
+        window.delWeight = (idx) => {
             const f = state.fishermen.find(f => f.poste == state.currentPoste && f.type === state.currentType);
             f.weights.splice(idx, 1);
-            save(); render();
+            save();
         };
 
         render();
