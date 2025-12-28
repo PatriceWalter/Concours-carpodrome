@@ -327,7 +327,10 @@
                                 <td class="p-6 font-bold text-blue-900 uppercase text-xs italic">${w.period}</td>
                                 <td class="p-6 font-bold text-blue-400 text-sm italic">${w.fishCount || 0} Poisson(s)</td>
                                 <td class="p-6 text-right font-black text-blue-900 text-xl italic">${w.weight.toFixed(3)} kg</td>
-                                <td class="p-6 text-center"><button onclick="delW(${f.weights.length-1-idx})" class="p-2 text-red-100 hover:text-red-500 transition-colors"><i data-lucide="trash-2"></i></button></td>
+                                <td class="p-6 flex justify-center gap-2">
+                                    <button onclick="editW(${f.weights.length-1-idx})" class="p-2 text-blue-200 hover:text-blue-600 transition-colors"><i data-lucide="edit-3"></i></button>
+                                    <button onclick="delW(${f.weights.length-1-idx})" class="p-2 text-red-100 hover:text-red-500 transition-colors"><i data-lucide="trash-2"></i></button>
+                                </td>
                             </tr>`).join('')}
                         </tbody>
                     </table>
@@ -341,9 +344,30 @@
             if(!w) return;
             f.weights.push({ period: document.getElementById('p_per').value, weight: w, fishCount: c });
             save();
+            document.getElementById('p_wei').value = '';
+            document.getElementById('p_cou').value = '1';
+        };
+
+        window.editW = (idx) => {
+            const p = prompt("Modification réservée. Mot de passe admin :");
+            if(p !== "admin") return alert("Accès refusé");
+            
+            const f = state.fishermen.find(f => f.poste == state.currentPoste && f.type === state.currentType);
+            const w = f.weights[idx];
+            
+            // On remonte les données dans le formulaire
+            document.getElementById('p_per').value = w.period;
+            document.getElementById('p_wei').value = w.weight;
+            document.getElementById('p_cou').value = w.fishCount;
+            
+            // On supprime l'ancienne entrée pour la remplacer par la nouvelle au clic sur Valider
+            f.weights.splice(idx, 1);
+            alert("Les données ont été remontées dans le formulaire. Modifiez-les puis cliquez sur 'Valider'.");
         };
 
         window.delW = (idx) => {
+            const p = prompt("Suppression réservée. Mot de passe admin :");
+            if(p !== "admin") return alert("Accès refusé");
             const f = state.fishermen.find(f => f.poste == state.currentPoste && f.type === state.currentType);
             f.weights.splice(idx, 1);
             save();
