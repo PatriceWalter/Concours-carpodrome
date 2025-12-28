@@ -1,187 +1,381 @@
 <!DOCTYPE html>
 <html lang="fr">
 <head>
-<meta charset="UTF-8">
-<title>Concours de Pêche</title>
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-
-<!-- UI -->
-<script src="https://cdn.tailwindcss.com"></script>
-<script src="https://unpkg.com/lucide@latest"></script>
-
-<!-- React -->
-<script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
-<script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
-<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-
-<!-- Firebase -->
-<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-database-compat.js"></script>
-
-<style>
-body { background-color:#f3f4f6; }
-</style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Concours de Pêche Pro</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap');
+        body { font-family: 'Inter', sans-serif; background-color: #f1f5f9; }
+        .modal-overlay { background-color: rgba(30, 58, 138, 0.4); backdrop-filter: blur(3px); }
+        .table-responsive { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+    </style>
 </head>
-
 <body>
-<div id="root"></div>
 
-<script>
-/* ================= FIREBASE ================= */
-const firebaseConfig = {
-  apiKey: "AIzaSyB4m0D0eyQSNMc...",
-  authDomain: "concours-peche.firebaseapp.com",
-  databaseURL: "https://concours-peche-default-rtdb.europe-west1.firebasedatabase.app",
-  projectId: "concours-peche",
-  storageBucket: "concours-peche.appspot.com",
-  messagingSenderId: "376446532224",
-  appId: "1:376446532224:web:4f9c1ffd2f4fe3ef450465"
-};
+    <div id="app" class="max-w-6xl mx-auto p-4 md:p-8"></div>
 
-
-firebase.initializeApp(firebaseConfig);
-
-const auth = firebase.auth();
-const db = firebase.database();
-
-/* ============= STORAGE TEMPS RÉEL ============= */
-window.storage = {
-  on: (key, cb) => db.ref(key).on("value", s => cb(s.exists() ? s.val() : null)),
-  set: (key, val) => db.ref(key).set(val)
-};
-</script>
-
-<script type="text/babel">
-const { useState, useEffect } = React;
-
-/* ================= ICON ================= */
-const Icon = ({ name, size=24 }) => {
-  useEffect(()=>lucide.createIcons(),[]);
-  return <i data-lucide={name} style={{width:size,height:size}}></i>;
-};
-
-/* ================= APP ================= */
-const App = () => {
-  const [user,setUser] = useState(null);
-  const [email,setEmail] = useState("");
-  const [password,setPassword] = useState("");
-
-  const [page,setPage] = useState("index");
-  const [fishermen,setFishermen] = useState([]);
-  const [contest,setContest] = useState({title:"Concours de Pêche",date:""});
-
-  useEffect(()=>auth.onAuthStateChanged(u=>setUser(u)),[]);
-
-  useEffect(()=>{
-    if(!user) return;
-    storage.on("fishermen-list",d=>setFishermen(d||[]));
-    storage.on("contest-info",d=>setContest(d||contest));
-  },[user]);
-
-  const saveFishermen = list => storage.set("fishermen-list",list);
-  const saveContest = c => storage.set("contest-info",c);
-
-  const login = async()=> {
-    try { await auth.signInWithEmailAndPassword(email,password); }
-    catch(e){ alert(e.message); }
-  };
-
-  if(!user){
-    return(
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="bg-white p-6 rounded shadow w-80">
-          <h2 className="text-xl font-bold mb-4">Connexion</h2>
-          <input className="border p-2 w-full mb-2" placeholder="Email" onChange={e=>setEmail(e.target.value)}/>
-          <input type="password" className="border p-2 w-full mb-4" placeholder="Mot de passe" onChange={e=>setPassword(e.target.value)}/>
-          <button onClick={login} className="bg-blue-600 text-white w-full p-2 rounded">Connexion</button>
+    <div id="modal-poste" class="hidden fixed inset-0 modal-overlay flex items-center justify-center z-50">
+        <div class="bg-white p-8 rounded-3xl shadow-2xl w-full max-w-sm mx-4 border-t-8 border-blue-600">
+            <h3 class="text-xl font-bold mb-2 text-blue-900">Assigner un poste</h3>
+            <p id="modal-fisher-name" class="text-blue-600 font-bold mb-6 text-lg"></p>
+            <select id="modal-select-poste" class="w-full border-2 border-slate-200 p-4 rounded-2xl mb-6 font-bold outline-none focus:border-blue-600 bg-slate-50"></select>
+            <div class="flex gap-3">
+                <button onclick="closePosteModal()" class="flex-1 bg-slate-100 py-4 rounded-2xl font-bold text-slate-500 hover:bg-slate-200 transition">Annuler</button>
+                <button onclick="confirmPosteAssignment()" class="flex-1 bg-blue-600 py-4 rounded-2xl font-bold text-white hover:bg-blue-700 transition">Valider</button>
+            </div>
         </div>
-      </div>
-    );
-  }
-
-  /* ================= PAGES ================= */
-
-  const Index = ()=>(
-    <div className="p-4">
-      <h1 className="text-3xl font-bold text-center mb-2 text-blue-900">{contest.title}</h1>
-      <h2 className="text-xl text-center mb-6 text-gray-700">{contest.date}</h2>
-      <div className="grid grid-cols-2 gap-4 max-w-xl mx-auto">
-        <button onClick={()=>setPage("inscription")} className="bg-orange-500 text-white py-6 rounded"><Icon name="users"/> Inscription</button>
-        <button onClick={()=>setPage("resultats")} className="bg-green-500 text-white py-6 rounded"><Icon name="trophy"/> Résultats</button>
-        {[...Array(14)].map((_,i)=>(
-          <button key={i} onClick={()=>setPage("poste"+(i+1))} className="bg-blue-200 py-3 rounded">Poste {i+1}</button>
-        ))}
-      </div>
     </div>
-  );
 
-  const Inscription = ()=>{
-    const [nom,setNom]=useState("");
-    const [prenom,setPrenom]=useState("");
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+        import { getFirestore, doc, onSnapshot, setDoc, updateDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+        import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, signOut } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
 
-    const add = ()=>{
-      if(!nom||!prenom) return;
-      saveFishermen([...fishermen,{nom,prenom,poste:null,weights:[]}]);
-      setNom(""); setPrenom("");
-    };
+        const firebaseConfig = {
+            apiKey: "AIzaSyB44m6DoeyQSNMctS0hKLpaPR5vNOTNsw0",
+            authDomain: "concours-peche.firebaseapp.com",
+            projectId: "concours-peche",
+            storageBucket: "concours-peche.firebasestorage.app",
+            messagingSenderId: "376446532224",
+            appId: "1:376446532224:web:4f9c1ffd2f4fe3ef450465"
+        };
 
-    return(
-      <div className="p-4">
-        <button onClick={()=>setPage("index")} className="mb-4 text-blue-600">← Retour</button>
-        <div className="bg-white p-4 rounded shadow mb-4">
-          <input className="border p-2 mr-2" placeholder="Nom" value={nom} onChange={e=>setNom(e.target.value)}/>
-          <input className="border p-2 mr-2" placeholder="Prénom" value={prenom} onChange={e=>setPrenom(e.target.value)}/>
-          <button onClick={add} className="bg-blue-600 text-white p-2 rounded">Ajouter</button>
-        </div>
-        {fishermen.map((f,i)=>(
-          <div key={i} className="bg-orange-100 p-2 mb-2 rounded">{f.nom} {f.prenom}</div>
-        ))}
-      </div>
-    );
-  };
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+        const auth = getAuth(app);
 
-  const Poste = ({num})=>{
-    const f = fishermen.find(x=>x.poste==num);
-    if(!f) return <div className="p-4"><button onClick={()=>setPage("index")}>←</button>Aucun pêcheur</div>;
-    return(
-      <div className="p-4">
-        <button onClick={()=>setPage("index")} className="text-blue-600">← Retour</button>
-        <h1 className="text-xl font-bold mb-4">Poste {num} – {f.nom}</h1>
-      </div>
-    );
-  };
+        let state = {
+            user: null,
+            currentPage: 'login',
+            currentPoste: null,
+            fishermen: [],
+            contestInfo: { title: 'Concours de Pêche 2x4', date: '21 avril 2025' },
+            targetFisherIndex: null
+        };
 
-  const Resultats = ()=>{
-    const sorted=[...fishermen].sort((a,b)=>{
-      const ta=(a.weights||[]).reduce((s,w)=>s+w.weight,0);
-      const tb=(b.weights||[]).reduce((s,w)=>s+w.weight,0);
-      return tb-ta;
-    });
-    return(
-      <div className="p-4">
-        <button onClick={()=>setPage("index")} className="text-blue-600">← Retour</button>
-        <table className="w-full bg-white mt-4 rounded shadow">
-          <thead className="bg-yellow-500"><tr><th>Pos</th><th>Nom</th></tr></thead>
-          <tbody>
-            {sorted.map((f,i)=>(
-              <tr key={i}><td>{i+1}</td><td>{f.nom}</td></tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-    );
-  };
+        // --- SYNCHRONISATION TEMPS RÉEL ---
+        function initRealtimeSync() {
+            onSnapshot(doc(db, "concours", "data"), (docSnap) => {
+                if (docSnap.exists()) {
+                    const data = docSnap.data();
+                    state.fishermen = data.fishermen || [];
+                    state.contestInfo = data.contestInfo || state.contestInfo;
+                    render();
+                } else {
+                    saveToFirebase(); // Créer le doc s'il n'existe pas
+                }
+            });
+        }
 
-  if(page==="index") return <Index/>;
-  if(page==="inscription") return <Inscription/>;
-  if(page==="resultats") return <Resultats/>;
-  if(page.startsWith("poste")) return <Poste num={page.replace("poste","")}/>;
+        const saveToFirebase = async () => {
+            if (!state.user) return;
+            await setDoc(doc(db, "concours", "data"), {
+                fishermen: state.fishermen,
+                contestInfo: state.contestInfo
+            });
+        };
 
-  return null;
-};
+        // --- AUTHENTIFICATION ---
+        window.login = async () => {
+            const email = document.getElementById('login_email').value;
+            const pass = document.getElementById('login_pass').value;
+            try {
+                await signInWithEmailAndPassword(auth, email, pass);
+            } catch (e) { alert("Erreur de connexion : " + e.message); }
+        };
 
-ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
-</script>
-</body>
-</html>
+        window.logout = () => signOut(auth);
+
+        onAuthStateChanged(auth, (user) => {
+            state.user = user;
+            if (user) {
+                state.currentPage = 'index';
+                initRealtimeSync();
+            } else {
+                state.currentPage = 'login';
+                render();
+            }
+        });
+
+        // --- CALCULS (Inchangés) ---
+        const calc = {
+            totalWeight: (f) => f.weights.reduce((s, w) => s + w.weight, 0),
+            periodWeight: (f, p) => f.weights.filter(w => w.period === p).reduce((s, w) => s + w.weight, 0),
+            fishCount: (f) => f.weights.reduce((s, w) => s + (w.fishCount || 0), 0),
+            biggestIndividualFish: (f) => {
+                const solo = f.weights.filter(w => parseInt(w.fishCount) === 1).map(w => w.weight);
+                return solo.length > 0 ? Math.max(...solo) : 0;
+            },
+            globalWeight: () => state.fishermen.reduce((acc, f) => acc + calc.totalWeight(f), 0),
+            globalFish: () => state.fishermen.reduce((acc, f) => acc + calc.fishCount(f), 0),
+            absoluteRecord: () => {
+                let winner = { weight: 0, name: 'N/A' };
+                state.fishermen.forEach(f => {
+                    const best = calc.biggestIndividualFish(f);
+                    if(best > winner.weight) winner = { weight: best, name: `${f.nom.toUpperCase()} ${f.prenom}` };
+                });
+                return winner;
+            }
+        };
+
+        // --- RENDU ---
+        function render() {
+            const root = document.getElementById('app');
+            root.innerHTML = '';
+            
+            if (state.currentPage === 'login') return renderLogin(root);
+            if (!state.user) return;
+
+            if(state.currentPage === 'index') renderIndex(root);
+            else if(state.currentPage === 'settings') renderSettings(root);
+            else if(state.currentPage === 'inscription') renderInscription(root);
+            else if(state.currentPage === 'resultats') renderResultats(root);
+            else if(state.currentPage === 'poste') renderPoste(root);
+            lucide.createIcons();
+        }
+
+        function renderLogin(container) {
+            container.innerHTML = `
+                <div class="flex flex-col items-center justify-center min-h-[80vh]">
+                    <div class="bg-white p-10 rounded-[2.5rem] shadow-2xl w-full max-w-md border border-blue-50">
+                        <h2 class="text-3xl font-black text-blue-900 mb-8 text-center uppercase tracking-tight">Accès Concours</h2>
+                        <div class="space-y-4">
+                            <input id="login_email" type="email" placeholder="Email" class="w-full border-2 border-slate-100 p-4 rounded-2xl font-bold bg-slate-50 outline-none focus:border-blue-600">
+                            <input id="login_pass" type="password" placeholder="Mot de passe" class="w-full border-2 border-slate-100 p-4 rounded-2xl font-bold bg-slate-50 outline-none focus:border-blue-600">
+                            <button onclick="login()" class="w-full bg-blue-600 text-white font-black py-4 rounded-2xl hover:bg-blue-700 transition shadow-lg shadow-blue-200 mt-4 uppercase">Se connecter</button>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        function renderIndex(container) {
+            container.innerHTML = `
+                <div class="flex justify-between items-center mb-4">
+                    <button onclick="logout()" class="text-xs font-bold text-slate-400 hover:text-red-500 uppercase">Déconnexion</button>
+                    <button onclick="nav('settings')" class="p-3 bg-white border border-blue-100 shadow-sm rounded-full text-blue-600 hover:bg-blue-50 transition">
+                        <i data-lucide="settings"></i>
+                    </button>
+                </div>
+                <div class="text-center mb-12 px-4">
+                    <h1 class="text-5xl font-black text-blue-900 mb-2 tracking-tight">${state.contestInfo.title}</h1>
+                    <div class="inline-block px-8 py-3 bg-blue-600 text-white rounded-full font-bold uppercase tracking-widest text-sm shadow-lg">${state.contestInfo.date}</div>
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-12 max-w-3xl mx-auto px-4">
+                    <button onclick="nav('inscription')" class="p-8 bg-orange-500 text-white rounded-[2.5rem] shadow-xl hover:bg-orange-600 transition-all transform hover:-translate-y-1 flex items-center justify-between group">
+                        <div class="text-left"><span class="block text-3xl font-black">Inscriptions</span><span class="opacity-80 font-bold uppercase text-xs tracking-widest">Enregistrement</span></div>
+                        <i data-lucide="users" class="w-12 h-12 opacity-50 group-hover:scale-110 transition"></i>
+                    </button>
+                    <button onclick="nav('resultats')" class="p-8 bg-emerald-600 text-white rounded-[2.5rem] shadow-xl hover:bg-emerald-700 transition-all transform hover:-translate-y-1 flex items-center justify-between group">
+                        <div class="text-left"><span class="block text-3xl font-black">Classement</span></div>
+                        <i data-lucide="trophy" class="w-12 h-12 opacity-50 group-hover:scale-110 transition"></i>
+                    </button>
+                </div>
+                <div class="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-7 gap-4">
+                    ${Array.from({length: 14}, (_, i) => i + 1).map(n => {
+                        const occ = state.fishermen.find(f => f.poste == n);
+                        return `
+                        <button onclick="openPoste(${n})" class="p-6 rounded-3xl border-2 transition-all flex flex-col items-center ${occ ? 'bg-blue-900 border-blue-900 text-white shadow-xl' : 'bg-white border-white text-blue-800 hover:border-blue-400 shadow-sm'}">
+                            <span class="text-[10px] font-black uppercase opacity-50 mb-1">Poste</span>
+                            <span class="text-3xl font-black mb-1">${n}</span>
+                            <span class="text-[10px] truncate w-full text-center font-bold uppercase leading-tight">${occ ? `${occ.nom}<br/><span class="opacity-60 text-[8px]">${occ.prenom}</span>` : 'LIBRE'}</span>
+                        </button>`;
+                    }).join('')}
+                </div>
+            `;
+        }
+
+        function renderResultats(container) {
+            const sorted = [...state.fishermen].filter(f => f.poste).sort((a,b) => calc.totalWeight(b) - calc.totalWeight(a));
+            const record = calc.absoluteRecord();
+            container.innerHTML = `
+                <button onclick="nav('index')" class="mb-8 flex items-center text-blue-600 font-bold hover:underline"><i data-lucide="arrow-left" class="mr-2"></i> Retour Accueil</button>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
+                    <div class="bg-blue-900 p-8 rounded-[2.5rem] text-white shadow-xl relative overflow-hidden group">
+                        <i data-lucide="scale" class="absolute -right-4 -bottom-4 w-24 h-24 opacity-10 group-hover:scale-110 transition"></i>
+                        <p class="text-xl font-black uppercase mb-2 tracking-widest">Poids Total Concours</p>
+                        <p class="text-4xl font-black">${calc.globalWeight().toFixed(3)} <span class="text-lg opacity-60">kg</span></p>
+                    </div>
+                    <div class="bg-blue-600 p-8 rounded-[2.5rem] text-white shadow-xl relative overflow-hidden group border-4 border-blue-400/20">
+                        <i data-lucide="fish" class="absolute -right-4 -bottom-4 w-24 h-24 opacity-10 group-hover:scale-110 transition"></i>
+                        <p class="text-xl font-black uppercase mb-2 tracking-widest">Total Poissons Sortis</p>
+                        <p class="text-4xl font-black">${calc.globalFish()}</p>
+                    </div>
+                    <div class="bg-yellow-500 p-8 rounded-[2.5rem] text-blue-950 shadow-xl relative overflow-hidden group border-4 border-yellow-300/50">
+                        <i data-lucide="fish" class="absolute -right-4 -bottom-4 w-24 h-24 opacity-20 group-hover:scale-110 transition rotate-12"></i>
+                        <p class="text-xl font-black uppercase mb-2 tracking-widest">Plus Grosse Carpe</p>
+                        <p class="text-3xl font-black mb-1">${record.weight > 0 ? record.weight.toFixed(3) + ' kg' : '---'}</p>
+                        <p class="text-lg font-black uppercase tracking-tighter truncate">${record.name}</p>
+                    </div>
+                </div>
+                <div class="bg-white rounded-[2.5rem] shadow-xl border border-blue-50 overflow-hidden">
+                    <div class="table-responsive">
+                        <table class="w-full text-left min-w-[800px]">
+                            <thead class="bg-blue-900 text-white text-[10px] uppercase font-black">
+                                <tr><th class="p-6">Rang</th><th class="p-6">Pêcheur</th><th class="p-6 text-center">Poste</th><th class="p-6">Matin</th><th class="p-6">Après-midi</th><th class="p-6 text-center">Poissons</th><th class="p-6 text-right">Poids Total</th></tr>
+                            </thead>
+                            <tbody>
+                                ${sorted.map((f, i) => `
+                                    <tr class="${i===0?'bg-blue-50/50':''} border-b border-slate-50">
+                                        <td class="p-6"><span class="w-12 h-12 flex items-center justify-center rounded-2xl font-black text-xl ${i===0?'bg-yellow-400 text-white shadow-lg':i===1?'bg-slate-300 text-white':i===2?'bg-orange-400 text-white':'bg-slate-100 text-slate-400'}">${i+1}</span></td>
+                                        <td class="p-6"><div class="font-black text-blue-900 uppercase text-lg leading-none">${f.nom}</div><div class="text-xs font-bold text-blue-400 mt-1 uppercase tracking-widest">${f.prenom}</div></td>
+                                        <td class="p-6 text-center"><span class="inline-block px-3 py-1 bg-slate-100 rounded-lg font-black text-slate-500 uppercase text-xs">P-${f.poste}</span></td>
+                                        <td class="p-6 font-bold text-slate-500">${calc.periodWeight(f, 'matin').toFixed(3)} kg</td>
+                                        <td class="p-6 font-bold text-slate-500">${calc.periodWeight(f, 'apres-midi').toFixed(3)} kg</td>
+                                        <td class="p-6 text-center"><span class="font-black text-slate-400">${calc.fishCount(f)}</span></td>
+                                        <td class="p-6 text-right"><span class="text-2xl font-black ${i===0?'text-blue-700':'text-blue-900'}">${calc.totalWeight(f).toFixed(3)} kg</span></td>
+                                    </tr>`).join('')}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            `;
+        }
+
+        function renderSettings(container) {
+            container.innerHTML = `
+                <button onclick="nav('index')" class="mb-8 flex items-center text-blue-600 font-bold"><i data-lucide="arrow-left" class="mr-2"></i> Retour</button>
+                <div class="bg-white p-8 rounded-[2.5rem] shadow-xl border border-blue-50 max-w-lg mx-auto">
+                    <h2 class="text-2xl font-black mb-6 text-blue-900 uppercase">Configuration</h2>
+                    <div class="space-y-6">
+                        <div><label class="block text-[10px] font-black uppercase text-slate-400 mb-2 ml-2">Nom de l'événement</label>
+                        <input id="set_title" type="text" value="${state.contestInfo.title}" class="w-full border-2 border-slate-100 p-4 rounded-2xl font-bold bg-slate-50 outline-none"></div>
+                        <div><label class="block text-[10px] font-black uppercase text-slate-400 mb-2 ml-2">Date</label>
+                        <input id="set_date" type="text" value="${state.contestInfo.date}" class="w-full border-2 border-slate-100 p-4 rounded-2xl font-bold bg-slate-50 outline-none"></div>
+                        <button onclick="updateSettings()" class="w-full bg-blue-600 text-white font-black py-4 rounded-2xl shadow-lg uppercase">Enregistrer</button>
+                        <button onclick="resetAll()" class="w-full bg-red-50 text-red-600 font-bold py-4 rounded-2xl mt-4 uppercase">Réinitialiser Firebase (⚠️)</button>
+                    </div>
+                </div>
+            `;
+        }
+
+        function renderPoste(container) {
+            const f = state.fishermen.find(f => f.poste == state.currentPoste);
+            if(!f) return nav('index');
+            container.innerHTML = `
+                <button onclick="nav('index')" class="mb-8 flex items-center text-blue-600 font-bold"><i data-lucide="arrow-left" class="mr-2"></i> Retour Accueil</button>
+                <div class="bg-white p-8 rounded-3xl shadow-lg border-l-8 border-blue-600 mb-6 flex flex-col md:flex-row justify-between items-start md:items-end gap-4">
+                    <div><h1 class="text-4xl font-black text-blue-900">POSTE ${state.currentPoste}</h1><p class="text-2xl font-bold text-slate-500 uppercase">${f.nom} ${f.prenom}</p></div>
+                    <div class="text-right bg-blue-50 p-6 rounded-[2rem] border border-blue-100 min-w-[200px]">
+                        <span class="block text-xs font-black text-blue-600 uppercase mb-1">Total Peson</span>
+                        <span class="text-4xl font-black text-blue-800">${calc.totalWeight(f).toFixed(3)} <small class="text-lg">kg</small></span>
+                    </div>
+                </div>
+                <div class="bg-white p-8 rounded-3xl shadow-sm border border-slate-200 mb-8">
+                    <h3 class="font-black mb-6 text-blue-900 uppercase text-sm">Ajouter une pesée</h3>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
+                        <select id="p_per" class="border-2 border-slate-100 p-4 rounded-2xl font-bold bg-slate-50 outline-none focus:border-blue-600"><option value="matin">Matin</option><option value="apres-midi">Après-midi</option></select>
+                        <input id="p_wei" type="number" step="0.001" placeholder="Poids total (kg)" class="border-2 border-slate-100 p-4 rounded-2xl font-bold outline-none focus:border-blue-600">
+                        <input id="p_cou" type="number" value="1" min="1" class="border-2 border-slate-100 p-4 rounded-2xl font-bold outline-none focus:border-blue-600">
+                        <button onclick="addW(${state.currentPoste})" class="bg-blue-600 text-white font-black py-4 rounded-2xl shadow-xl shadow-blue-100">Valider</button>
+                    </div>
+                </div>
+                <div class="bg-white rounded-3xl shadow-xl border overflow-hidden">
+                    <table class="w-full text-left">
+                        <thead class="bg-slate-50 text-slate-400 text-[10px] uppercase font-black border-b">
+                            <tr><th class="p-6">Période</th><th class="p-6">Quantité</th><th class="p-6 text-right">Poids du lot</th><th class="p-6 text-center">Action</th></tr>
+                        </thead>
+                        <tbody>
+                            ${f.weights.slice().reverse().map((w, i) => `
+                                <tr class="border-b last:border-0 hover:bg-slate-50">
+                                    <td class="p-6 font-bold capitalize text-slate-700">${w.period}</td>
+                                    <td class="p-6"><span class="px-4 py-1 rounded-full text-[10px] font-black ${w.fishCount == 1 ? 'bg-orange-100 text-orange-600' : 'bg-slate-100 text-slate-500'} uppercase">${w.fishCount} poisson${w.fishCount > 1 ? 's' : ''}</span></td>
+                                    <td class="p-6 text-right font-black text-blue-900 text-lg">${w.weight.toFixed(3)} kg</td>
+                                    <td class="p-6 text-center"><button onclick="delW(${f.weights.length-1-i})" class="text-slate-300 hover:text-red-500"><i data-lucide="trash-2"></i></button></td>
+                                </tr>`).join('')}
+                        </tbody>
+                    </table>
+                </div>
+            `;
+        }
+
+        function renderInscription(container) {
+            const unassigned = state.fishermen.filter(f => !f.poste);
+            const assigned = state.fishermen.filter(f => f.poste).sort((a,b) => a.poste - b.poste);
+            container.innerHTML = `
+                <button onclick="nav('index')" class="mb-8 flex items-center text-blue-600 font-bold"><i data-lucide="arrow-left" class="mr-2"></i> Retour</button>
+                <div class="bg-white p-8 rounded-3xl border border-blue-50 shadow-xl mb-8">
+                    <h2 class="text-2xl font-black mb-6 text-blue-900 uppercase">Nouvel Inscrit</h2>
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <input id="in_nom" placeholder="Nom" class="border-2 border-slate-100 p-4 rounded-2xl font-bold bg-slate-50 uppercase">
+                        <input id="in_prenom" placeholder="Prénom" class="border-2 border-slate-100 p-4 rounded-2xl font-bold bg-slate-50 capitalize">
+                        <select id="in_poste" class="border-2 border-slate-100 p-4 rounded-2xl font-bold bg-slate-50">
+                            <option value="">Poste non défini...</option>
+                            ${Array.from({length: 14}, (_, i) => i + 1).map(n => {
+                                const occ = state.fishermen.find(f => f.poste == n);
+                                return `<option value="${n}" ${occ ? 'disabled' : ''}>Poste ${n} ${occ ? '(Complet)' : ''}</option>`;
+                            }).join('')}
+                        </select>
+                    </div>
+                    <button onclick="addFisherman()" class="w-full mt-6 bg-blue-900 text-white font-black py-5 rounded-2xl hover:bg-black shadow-xl uppercase">Enregistrer le Pêcheur</button>
+                </div>
+                ${unassigned.length > 0 ? `<div class="mb-8 p-6 bg-orange-50 rounded-3xl border-2 border-orange-100 font-bold space-y-2">
+                    <p class="text-orange-800 uppercase text-[10px] font-black mb-2">Attente d'assignation :</p>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        ${unassigned.map(f => `<div onclick="openPosteModal('${f.nom} ${f.prenom}')" class="bg-white p-4 rounded-2xl shadow-sm cursor-pointer border-2 border-transparent hover:border-orange-500 flex justify-between uppercase transition-all"><span>${f.nom} ${f.prenom}</span> <i data-lucide="plus-circle" class="text-orange-500"></i></div>`).join('')}
+                    </div>
+                </div>` : ''}
+                <div class="bg-white rounded-3xl border border-blue-50 shadow-sm overflow-hidden">
+                    <table class="w-full text-left"><thead class="bg-slate-50 text-slate-400 text-[10px] uppercase font-black border-b"><tr><th class="p-6">Poste</th><th class="p-6">Identité</th><th class="p-6 text-right">Action</th></tr></thead>
+                    <tbody>${assigned.map(f => `<tr class="border-b last:border-0"><td class="p-6 font-black text-blue-600">POSTE ${f.poste}</td><td class="p-6 font-bold text-slate-700 uppercase">${f.nom} ${f.prenom}</td><td class="p-6 text-right"><button onclick="delFisher(${f.poste})" class="text-red-400 hover:text-red-600 font-black">Effacer</button></td></tr>`).join('')}</tbody></table>
+                </div>
+            `;
+        }
+
+        // --- ACTIONS (MAINTENANT AVEC FIREBASE) ---
+        window.nav = (p) => { state.currentPage = p; render(); };
+        window.openPoste = (n) => { state.currentPoste = n; state.currentPage = 'poste'; render(); };
+        
+        window.updateSettings = async () => {
+            state.contestInfo.title = document.getElementById('set_title').value;
+            state.contestInfo.date = document.getElementById('set_date').value;
+            await saveToFirebase(); nav('index');
+        };
+
+        window.resetAll = async () => { if(confirm("Supprimer TOUT de Firebase ?")) { state.fishermen = []; await saveToFirebase(); nav('index'); } };
+
+        window.addW = async (pNum) => {
+            const f = state.fishermen.find(f => f.poste == pNum);
+            const w = parseFloat(document.getElementById('p_wei').value) || 0;
+            const c = parseInt(document.getElementById('p_cou').value) || 0;
+            const p = document.getElementById('p_per').value;
+            if(w <= 0) return alert("Poids requis");
+            f.weights.push({ period: p, weight: w, fishCount: c });
+            await saveToFirebase(); render();
+        };
+
+        window.delW = async (idx) => {
+            const f = state.fishermen.find(f => f.poste == state.currentPoste);
+            f.weights.splice(idx, 1);
+            await saveToFirebase(); render();
+        };
+
+        window.addFisherman = async () => {
+            const nom = document.getElementById('in_nom').value;
+            const prenom = document.getElementById('in_prenom').value;
+            const poste = document.getElementById('in_poste').value;
+            if(!nom || !prenom) return alert("Nom et Prénom requis");
+            state.fishermen.push({ nom, prenom, poste: poste ? parseInt(poste) : null, weights: [] });
+            await saveToFirebase(); render();
+        };
+
+        window.delFisher = async (p) => { if(confirm("Supprimer ?")) { state.fishermen = state.fishermen.filter(f => f.poste != p); await saveToFirebase(); render(); } };
+
+        window.openPosteModal = (n) => {
+            state.targetFisherIndex = state.fishermen.findIndex(f => `${f.nom} ${f.prenom}` === n);
+            document.getElementById('modal-fisher-name').innerText = n;
+            const sel = document.getElementById('modal-select-poste');
+            sel.innerHTML = '<option value="">Choisir un poste...</option>';
+            for(let i=1; i<=14; i++) if(!state.fishermen.find(f => f.poste == i)) sel.innerHTML += `<option value="${i}">Poste ${i}</option>`;
+            document.getElementById('modal-poste').classList.remove('hidden');
+        };
+
+        window.closePosteModal = () => document.getElementById('modal-poste').classList.add('hidden');
+
+        window.confirmPosteAssignment = async () => {
+            const p = document.getElementById('modal-select-poste').value;
+            if(!p) return;
+            state.fishermen[state.targetFisherIndex].poste = parseInt(p);
