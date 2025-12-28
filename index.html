@@ -3,10 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>CONCOURS CARPODROME PRO</title>
+    <title>CONCOURS CARPODROME</title>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/lucide@latest"></script>
     <style>
@@ -18,7 +17,7 @@
     <div id="app" class="max-w-2xl mx-auto p-4 min-h-screen"></div>
 
     <script>
-        // Ta configuration officielle validée
+        // Ta config (Utilisée uniquement pour la base de données maintenant)
         const firebaseConfig = {
             apiKey: "AIzaSyB44m6DoeyQSNMctS0hKLpaPR5vNOTNsw0",
             authDomain: "concours-peche.firebaseapp.com",
@@ -28,26 +27,13 @@
             appId: "1:376446532224:web:4f9c1ffd2f4fe3ef450465"
         };
 
-        // Initialisation immédiate
         firebase.initializeApp(firebaseConfig);
         const db = firebase.firestore();
-        const auth = firebase.auth();
 
-        let state = { user: null, view: 'menu', fishermen: [], target: null };
+        let state = { view: 'menu', fishermen: [], target: null };
 
-        // --- ACTIONS ---
-        window.login = async () => {
-            const e = document.getElementById('email-field').value;
-            const p = document.getElementById('pass-field').value;
-            try { 
-                await auth.signInWithEmailAndPassword(e, p); 
-            } catch (err) { 
-                alert("Erreur de connexion : " + err.message); 
-            }
-        };
-
-        const sync = async () => {
-            if (!state.user) return;
+        // Sauvegarde automatique
+        const save = async () => {
             await db.collection("data").doc("concours").set({ fishermen: state.fishermen });
         };
 
@@ -56,49 +42,32 @@
             const p = parseInt(document.getElementById('n-poste').value);
             if(!n || !p) return alert("Saisir nom et poste");
             state.fishermen.push({ nom: n.toUpperCase(), poste: p, weights: [] });
-            sync(); state.view = 'menu'; render();
+            save(); state.view = 'menu'; render();
         };
 
         window.addW = (idx) => {
             const w = parseFloat(document.getElementById(`w-${idx}`).value);
-            if(!w) return;
+            if(!w || w <= 0) return alert("Saisir un poids");
             state.fishermen[idx].weights.push({ weight: w, date: Date.now() });
-            sync(); render();
+            save(); render();
         };
 
-        // --- SYNC TEMPS RÉEL ---
-        auth.onAuthStateChanged(user => {
-            state.user = user;
-            if(user) {
-                db.collection("data").doc("concours").onSnapshot(doc => {
-                    if(doc.exists) state.fishermen = doc.data().fishermen || [];
-                    render();
-                });
-            } else { render(); }
+        // Chargement temps réel (sans besoin d'être connecté)
+        db.collection("data").doc("concours").onSnapshot(doc => {
+            if(doc.exists) state.fishermen = doc.data().fishermen || [];
+            render();
         });
 
-        // --- INTERFACE ---
         function render() {
             const root = document.getElementById('app');
-            if(!state.user) {
-                root.innerHTML = `
-                    <div class="mt-20 bg-white p-8 rounded-[2.5rem] text-slate-900 shadow-2xl">
-                        <h2 class="text-3xl font-black mb-8 text-center uppercase tracking-tighter">Connexion</h2>
-                        <input id="email-field" type="email" placeholder="Email" class="w-full border-2 p-4 rounded-2xl mb-4 font-bold text-slate-900 border-slate-100 focus:border-blue-600 outline-none">
-                        <input id="pass-field" type="password" placeholder="Mot de passe" class="w-full border-2 p-4 rounded-2xl mb-6 font-bold text-slate-900 border-slate-100 focus:border-blue-600 outline-none">
-                        <button onclick="login()" class="w-full bg-blue-600 text-white font-black py-4 rounded-2xl shadow-lg uppercase">Se Connecter</button>
-                    </div>`;
-                return;
-            }
 
             if(state.view === 'menu') {
                 root.innerHTML = `
-                    <div class="flex justify-between items-center mb-8 px-2">
-                        <h1 class="text-2xl font-black text-blue-400 uppercase">Concours Pro</h1>
-                        <button onclick="auth.signOut()" class="text-[10px] opacity-40 font-bold uppercase">Quitter</button>
+                    <div class="mb-8 px-2 text-center">
+                        <h1 class="text-3xl font-black text-blue-400 uppercase tracking-tighter">CONCOURS DIRECT</h1>
                     </div>
                     <div class="grid grid-cols-1 gap-4 mb-8">
-                        <button onclick="state.view='inscription';render()" class="p-6 bg-orange-500 rounded-3xl font-black text-xl flex justify-between items-center shadow-lg">Nouvelle Inscription <i data-lucide="user-plus"></i></button>
+                        <button onclick="state.view='inscription';render()" class="p-6 bg-orange-500 rounded-3xl font-black text-xl flex justify-between items-center shadow-lg">Inscriptions <i data-lucide="user-plus"></i></button>
                         <button onclick="state.view='classement';render()" class="p-6 bg-emerald-600 rounded-3xl font-black text-xl flex justify-between items-center shadow-lg">Classement <i data-lucide="trophy"></i></button>
                     </div>
                     <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
@@ -106,43 +75,42 @@
                             const f = state.fishermen.find(x => x.poste == n);
                             const total = f ? f.weights.reduce((a,b)=>a+b.weight, 0).toFixed(2) : 0;
                             return `
-                            <div class="p-4 rounded-3xl border-2 flex flex-col items-center ${f ? 'bg-blue-600 border-blue-500' : 'bg-slate-800 border-slate-700 opacity-40'}">
+                            <div class="p-4 rounded-3xl border-2 ${f ? 'bg-blue-600 border-blue-500 shadow-xl' : 'bg-slate-800 border-slate-700 opacity-40'} flex flex-col items-center">
                                 <span class="text-[10px] font-black uppercase opacity-60">Poste ${n}</span>
                                 <span class="text-lg font-black truncate w-full text-center">${f ? f.nom.split(' ')[0] : 'LIBRE'}</span>
                                 <span class="text-xs font-bold text-blue-200">${total} kg</span>
-                                ${f ? `<button onclick="state.view='pesee';state.target=${state.fishermen.indexOf(f)};render()" class="mt-2 bg-white text-blue-900 text-[10px] px-3 py-1 rounded-full font-black uppercase shadow-md">Peser</button>` : ''}
+                                ${f ? `<button onclick="state.view='pesee';state.target=${state.fishermen.indexOf(f)};render()" class="mt-2 bg-white text-blue-900 text-[10px] px-3 py-1 rounded-full font-black uppercase">Peser</button>` : ''}
                             </div>`;
                         }).join('')}
                     </div>`;
             } else if (state.view === 'inscription') {
-                root.innerHTML = `<button onclick="state.view='menu';render()" class="mb-6 font-bold text-blue-400">← Retour</button>
-                    <div class="bg-white p-8 rounded-[2rem] text-slate-900 shadow-xl">
-                        <h2 class="text-xl font-black mb-6 uppercase text-center text-blue-600">Inscription Pêcheur</h2>
-                        <input id="n-nom" placeholder="NOM DU PÊCHEUR" class="w-full border-2 p-4 rounded-2xl mb-4 font-bold uppercase text-slate-900 outline-none focus:border-blue-600">
-                        <input id="n-poste" type="number" placeholder="NUMÉRO DE POSTE" class="w-full border-2 p-4 rounded-2xl mb-6 font-bold text-slate-900 outline-none focus:border-blue-600">
-                        <button onclick="addF()" class="w-full bg-blue-600 text-white font-black py-4 rounded-2xl shadow-lg uppercase tracking-widest">Enregistrer</button>
+                root.innerHTML = `<button onclick="state.view='menu';render()" class="mb-6 font-bold text-blue-400 text-sm italic underline">← Retour au menu</button>
+                    <div class="bg-white p-8 rounded-[2.5rem] text-slate-900 shadow-xl">
+                        <h2 class="text-xl font-black mb-6 uppercase text-center">Nouveau Pêcheur</h2>
+                        <input id="n-nom" placeholder="NOM DU PÊCHEUR" class="w-full border-2 p-4 rounded-2xl mb-4 font-bold uppercase outline-none focus:border-blue-600">
+                        <input id="n-poste" type="number" placeholder="N° POSTE (1-14)" class="w-full border-2 p-4 rounded-2xl mb-6 font-bold outline-none focus:border-blue-600">
+                        <button onclick="addF()" class="w-full bg-blue-600 text-white font-black py-4 rounded-2xl shadow-lg uppercase">Enregistrer</button>
                     </div>`;
             } else if (state.view === 'pesee') {
                 const f = state.fishermen[state.target];
-                root.innerHTML = `<button onclick="state.view='menu';render()" class="mb-6 font-bold text-blue-400">← Retour</button>
-                    <div class="bg-blue-800 p-8 rounded-[2.5rem] mb-6 shadow-2xl border border-blue-700">
-                        <h2 class="text-3xl font-black uppercase mb-1">${f.nom}</h2>
-                        <p class="text-blue-300 font-bold mb-6">Poste ${f.poste} • Total: ${f.weights.reduce((a,b)=>a+b.weight,0).toFixed(2)} kg</p>
-                        <input id="w-${state.target}" type="number" step="0.01" placeholder="Poids (ex: 5.40)" class="w-full bg-slate-900 p-4 rounded-2xl font-black text-2xl text-emerald-400 mb-4 outline-none">
-                        <button onclick="addW(${state.target})" class="w-full bg-emerald-500 text-white font-black py-4 rounded-2xl shadow-lg uppercase">Valider la Pesée</button>
-                    </div>
-                    <div class="space-y-2 px-2">
-                        ${f.weights.slice().reverse().map(w => `<div class="bg-slate-800 p-4 rounded-2xl flex justify-between items-center border border-slate-700 opacity-80"><span class="font-bold text-[10px] opacity-40">${new Date(w.date).toLocaleTimeString()}</span><span class="font-black text-emerald-400 text-lg">${w.weight.toFixed(2)} kg</span></div>`).join('')}
+                root.innerHTML = `<button onclick="state.view='menu';render()" class="mb-6 font-bold text-blue-400 text-sm italic underline">← Retour au menu</button>
+                    <div class="bg-blue-800 p-8 rounded-[2.5rem] mb-6 shadow-xl border border-blue-700">
+                        <h2 class="text-3xl font-black mb-1 uppercase">${f.nom}</h2>
+                        <p class="text-blue-300 font-bold mb-6 italic">Poste ${f.poste} • Total: ${f.weights.reduce((a,b)=>a+b.weight,0).toFixed(2)} kg</p>
+                        <input id="w-${state.target}" type="number" step="0.01" placeholder="Poids en kg" class="w-full bg-slate-900 p-4 rounded-2xl font-black text-2xl text-emerald-400 mb-4 border-none outline-none">
+                        <button onclick="addW(${state.target})" class="w-full bg-emerald-500 text-white font-black py-4 rounded-2xl shadow-lg uppercase">Valider</button>
                     </div>`;
             } else if (state.view === 'classement') {
                 const sorted = [...state.fishermen].sort((a,b) => b.weights.reduce((x,y)=>x+y.weight,0) - a.weights.reduce((x,y)=>x+y.weight,0));
-                root.innerHTML = `<button onclick="state.view='menu';render()" class="mb-6 font-bold text-blue-400">← Retour</button>
+                root.innerHTML = `<button onclick="state.view='menu';render()" class="mb-6 font-bold text-blue-400 text-sm italic underline">← Retour au menu</button>
                     <div class="bg-white rounded-[2rem] overflow-hidden text-slate-900 shadow-2xl">
-                        <div class="bg-emerald-600 p-6 text-white font-black uppercase text-center text-xl tracking-tighter">Classement Général</div>
-                        <table class="w-full">
-                            <thead class="bg-slate-50 text-[10px] font-black uppercase text-slate-400 border-b"><tr><th class="p-4 text-left">Rang</th><th class="p-4 text-left">Pêcheur</th><th class="p-4 text-right">Total</th></tr></thead>
+                        <div class="bg-emerald-600 p-6 text-white font-black uppercase text-center">Classement Général</div>
+                        <table class="w-full text-sm">
+                            <thead class="bg-slate-50 text-[10px] font-black uppercase text-slate-400 border-b">
+                                <tr><th class="p-4 text-left">Pêcheur</th><th class="p-4 text-right">Total</th></tr>
+                            </thead>
                             <tbody>
-                                ${sorted.map((f, i) => `<tr class="border-b border-slate-50"><td class="p-4 font-black text-blue-600 text-lg">#${i+1}</td><td class="p-4 font-black uppercase text-xs">${f.nom}<span class="block text-[9px] font-bold text-slate-400">Poste ${f.poste}</span></td><td class="p-4 text-right font-black text-xl text-emerald-600">${f.weights.reduce((a,b)=>a+b.weight,0).toFixed(2)}kg</td></tr>`).join('')}
+                                ${sorted.map((f, i) => `<tr class="border-b"><td class="p-4 font-black uppercase text-xs">#${i+1} ${f.nom}</td><td class="p-4 text-right font-black text-lg text-emerald-600">${f.weights.reduce((a,b)=>a+b.weight,0).toFixed(2)}kg</td></tr>`).join('')}
                             </tbody>
                         </table>
                     </div>`;
