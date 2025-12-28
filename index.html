@@ -3,24 +3,19 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Concours de Pêche Pro</title>
-    
+    <title>Concours Carpodrome</title>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
-    
     <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://unpkg.com/lucide@latest"></script>
 </head>
-<body class="bg-blue-900 text-white font-sans">
-
-    <div id="app" class="max-w-md mx-auto p-4">
-        </div>
+<body class="bg-blue-900 text-white font-sans min-h-screen">
+    <div id="app" class="max-w-xl mx-auto p-4"></div>
 
     <script>
-        // Ta config officielle récupérée de tes paramètres Firebase
+        // Ta configuration officielle
         const firebaseConfig = {
-            apiKey: "AIzaSyB44m6DoeyQSNMctS0hKLpaPR5vNOTNsw0", 
+            apiKey: "AIzaSyB44m6DoeyQSNMctS0hKLpaPR5vNOTNsw0",
             authDomain: "concours-peche.firebaseapp.com",
             projectId: "concours-peche",
             storageBucket: "concours-peche.firebasestorage.app",
@@ -28,45 +23,86 @@
             appId: "1:376446532224:web:4f9c1ffd2f4fe3ef450465"
         };
 
-        // INITIALISATION CRUCIALE
+        // INITIALISATION
         firebase.initializeApp(firebaseConfig);
         const db = firebase.firestore();
         const auth = firebase.auth();
 
-        // Gestion de l'affichage
-        auth.onAuthStateChanged((user) => {
-            const root = document.getElementById('app');
-            if (user) {
-                // PAGE PRINCIPALE APRES CONNEXION
-                root.innerHTML = `
-                    <div class="text-center p-8 bg-white rounded-3xl shadow-xl text-blue-900">
-                        <h1 class="text-2xl font-black mb-4 uppercase">Concours Connecté</h1>
-                        <p class="mb-8 font-bold text-emerald-600">Bienvenue, ${user.email}</p>
-                        <button onclick="firebase.auth().signOut()" class="bg-red-500 text-white p-4 rounded-xl w-full font-bold">DÉCONNEXION</button>
-                    </div>`;
-            } else {
-                // PAGE DE CONNEXION
-                root.innerHTML = `
-                    <div class="bg-white p-8 rounded-[2rem] shadow-2xl text-blue-900 mt-20">
-                        <h2 class="text-3xl font-black mb-8 text-center uppercase tracking-tighter">Accès Concours</h2>
-                        <input id="email" type="email" placeholder="Email" class="w-full border-2 p-4 rounded-xl mb-4 font-bold outline-none border-blue-100 focus:border-blue-600">
-                        <input id="pass" type="password" placeholder="Mot de passe" class="w-full border-2 p-4 rounded-xl mb-6 font-bold outline-none border-blue-100 focus:border-blue-600">
-                        <button onclick="login()" class="w-full bg-blue-600 text-white font-black py-4 rounded-xl shadow-lg uppercase transition-transform active:scale-95">Se Connecter</button>
-                    </div>`;
-            }
-        });
+        let state = { user: null, view: 'login', fishermen: [] };
 
-        // Fonction de connexion
+        // --- ACTIONS ---
         window.login = async () => {
             const email = document.getElementById('email').value;
             const pass = document.getElementById('pass').value;
-            try {
-                await auth.signInWithEmailAndPassword(email, pass);
-            } catch (e) {
-                alert("Erreur de connexion : " + e.message);
-                console.error(e);
-            }
+            try { await auth.signInWithEmailAndPassword(email, pass); } 
+            catch (e) { alert("ERREUR: " + e.message); }
         };
+
+        window.addFish = async () => {
+            const nom = document.getElementById('nom').value;
+            const poste = document.getElementById('poste').value;
+            if(!nom) return;
+            state.fishermen.push({ nom, poste, weights: [] });
+            await db.collection("data").doc("concours").set({ fishermen: state.fishermen });
+        };
+
+        window.saveWeight = async (idx) => {
+            const w = parseFloat(document.getElementById(`w-${idx}`).value);
+            if(!w) return;
+            state.fishermen[idx].weights.push(w);
+            await db.collection("data").doc("concours").set({ fishermen: state.fishermen });
+        };
+
+        // --- NAVIGATION & TEMPS RÉEL ---
+        auth.onAuthStateChanged(user => {
+            state.user = user;
+            if(user) {
+                db.collection("data").doc("concours").onSnapshot(doc => {
+                    if(doc.exists) state.fishermen = doc.data().fishermen || [];
+                    render();
+                });
+            } else { state.view = 'login'; render(); }
+        });
+
+        function render() {
+            const root = document.getElementById('app');
+            if(!state.user) {
+                root.innerHTML = `<div class="mt-20 bg-white p-8 rounded-3xl text-blue-900 shadow-2xl">
+                    <h2 class="text-2xl font-black mb-6 text-center uppercase">Connexion</h2>
+                    <input id="email" type="email" placeholder="Email" class="w-full border-2 p-4 rounded-xl mb-4 font-bold">
+                    <input id="password" type="password" placeholder="Pass" class="w-full border-2 p-4 rounded-xl mb-6 font-bold">
+                    <button onclick="login()" class="w-full bg-blue-600 text-white font-black py-4 rounded-xl">SE CONNECTER</button>
+                </div>`;
+                return;
+            }
+            // Interface principale
+            root.innerHTML = `
+                <div class="flex justify-between items-center mb-6">
+                    <h1 class="text-xl font-black uppercase">Concours Pro</h1>
+                    <button onclick="auth.signOut()" class="text-xs opacity-50">Quitter</button>
+                </div>
+                <div class="bg-white p-6 rounded-2xl text-blue-900 mb-6">
+                    <h3 class="font-black mb-4 uppercase">Inscrire un pêcheur</h3>
+                    <input id="nom" placeholder="Nom" class="w-full border p-3 rounded-lg mb-2 uppercase font-bold text-sm">
+                    <input id="poste" placeholder="N° Poste" class="w-full border p-3 rounded-lg mb-4 font-bold text-sm">
+                    <button onclick="addFish()" class="w-full bg-emerald-500 text-white font-black py-3 rounded-lg">VALIDER</button>
+                </div>
+                <div class="space-y-4">
+                    ${state.fishermen.map((f, i) => `
+                        <div class="bg-blue-800 p-4 rounded-2xl border border-blue-700">
+                            <div class="flex justify-between font-black uppercase mb-3">
+                                <span>Poste ${f.poste} - ${f.nom}</span>
+                                <span class="text-emerald-400">${f.weights.reduce((a,b)=>a+b,0).toFixed(2)}kg</span>
+                            </div>
+                            <div class="flex gap-2">
+                                <input id="w-${i}" type="number" step="0.01" placeholder="Poids" class="flex-1 p-2 rounded-lg text-blue-900 font-bold">
+                                <button onclick="saveWeight(${i})" class="bg-white text-blue-900 px-4 rounded-lg font-black">+</button>
+                            </div>
+                        </div>
+                    `).join('')}
+                </div>`;
+        }
+        render();
     </script>
 </body>
 </html>
