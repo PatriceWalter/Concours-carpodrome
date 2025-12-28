@@ -32,7 +32,6 @@
     </div>
 
     <script>
-        // Ta config Firebase officielle
         const firebaseConfig = {
             apiKey: "AIzaSyB44m6DoeyQSNMctS0hKLpaPR5vNOTNsw0",
             authDomain: "concours-peche.firebaseapp.com",
@@ -51,10 +50,10 @@
             isAdmin: false,
             fishermen: [],
             contestInfo: { title: 'Concours de Pêche 2x4', date: '21 avril 2025' },
-            targetFisherIndex: null
+            targetFisherIndex: null,
+            selectedPeriod: 'matin' // On stocke la période ici pour qu'elle reste stable
         };
 
-        // Sauvegarde sur le Cloud (Multi-utilisateur)
         const save = async () => {
             await db.collection("data").doc("concours").set({
                 fishermen: state.fishermen,
@@ -62,7 +61,6 @@
             });
         };
 
-        // Ecoute en temps réel des changements
         db.collection("data").doc("concours").onSnapshot(doc => {
             if(doc.exists) {
                 const data = doc.data();
@@ -219,7 +217,10 @@
                 <div class="bg-white p-8 rounded-3xl shadow-sm border border-slate-200 mb-8">
                     <h3 class="font-black mb-6 text-blue-900 uppercase text-sm tracking-widest">Ajouter une pesée</h3>
                     <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
-                        <select id="p_per" class="border-2 border-slate-100 p-4 rounded-2xl font-bold bg-slate-50 outline-none focus:border-blue-600"><option value="matin">Matin</option><option value="apres-midi">Après-midi</option></select>
+                        <select id="p_per" onchange="state.selectedPeriod = this.value" class="border-2 border-slate-100 p-4 rounded-2xl font-bold bg-slate-50 outline-none focus:border-blue-600">
+                            <option value="matin" ${state.selectedPeriod === 'matin' ? 'selected' : ''}>Matin</option>
+                            <option value="apres-midi" ${state.selectedPeriod === 'apres-midi' ? 'selected' : ''}>Après-midi</option>
+                        </select>
                         <input id="p_wei" type="number" step="0.001" placeholder="Poids total (kg)" class="border-2 border-slate-100 p-4 rounded-2xl font-bold outline-none focus:border-blue-600 transition">
                         <input id="p_cou" type="number" value="1" min="1" class="border-2 border-slate-100 p-4 rounded-2xl font-bold outline-none focus:border-blue-600 transition">
                         <button onclick="addW(${state.currentPoste})" class="bg-blue-600 text-white font-black py-4 rounded-2xl hover:bg-blue-700 transition shadow-xl shadow-blue-100">Valider</button>
@@ -275,7 +276,6 @@
                 </div>`;
         }
 
-        // --- Fonctions Admin ---
         window.tryAdmin = () => {
             if(state.isAdmin) return nav('settings');
             const id = prompt("Identifiant Admin :");
@@ -305,44 +305,5 @@
             const c = parseInt(document.getElementById('p_cou').value) || 0;
             const p = document.getElementById('p_per').value;
             if(w <= 0) return alert("Poids requis");
-            f.weights.push({ period: p, weight: w, fishCount: c });
-            save(); render();
-        };
-        window.delW = (idx) => {
-            if(!state.isAdmin) return alert("Action réservée à l'admin");
-            const f = state.fishermen.find(f => f.poste == state.currentPoste);
-            f.weights.splice(idx, 1);
-            save(); render();
-        };
-        window.addFisherman = () => {
-            const nom = document.getElementById('in_nom').value;
-            const prenom = document.getElementById('in_prenom').value;
-            const poste = document.getElementById('in_poste').value;
-            if(!nom || !prenom) return alert("Nom et Prénom requis");
-            state.fishermen.push({ nom: nom.toUpperCase(), prenom, poste: poste ? parseInt(poste) : null, weights: [] });
-            save(); render();
-        };
-        window.delFisher = (p) => { 
-            if(!state.isAdmin) return;
-            if(confirm("Supprimer ce pêcheur ?")) { state.fishermen = state.fishermen.filter(f => f.poste != p); save(); render(); } 
-        };
-        window.openPosteModal = (n) => {
-            state.targetFisherIndex = state.fishermen.findIndex(f => `${f.nom} ${f.prenom}` === n);
-            document.getElementById('modal-fisher-name').innerText = n;
-            const sel = document.getElementById('modal-select-poste');
-            sel.innerHTML = '<option value=\"\">Choisir un poste...</option>';
-            for(let i=1; i<=14; i++) if(!state.fishermen.find(f => f.poste == i)) sel.innerHTML += `<option value=\"${i}\">Poste ${i}</option>`;
-            document.getElementById('modal-poste').classList.remove('hidden');
-        };
-        window.closePosteModal = () => document.getElementById('modal-poste').classList.add('hidden');
-        window.confirmPosteAssignment = () => {
-            const p = document.getElementById('modal-select-poste').value;
-            if(!p) return;
-            state.fishermen[state.targetFisherIndex].poste = parseInt(p);
-            save(); closePosteModal(); render();
-        };
-
-        render();
-    </script>
-</body>
-</html>
+            
+            // Mise à jour de la période globale
