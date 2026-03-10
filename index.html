@@ -335,16 +335,23 @@
 
         function renderWait(t) {
             return state.fishermen.filter(f => !f.poste && f.type === t).map(f => `
-                <div class="bg-white p-4 rounded-2xl border-2 border-dashed border-slate-200 flex justify-between items-center">
+                <div class="bg-white p-4 rounded-2xl border-2 border-dashed border-slate-200 flex justify-between items-center gap-2">
                     <div class="font-black text-blue-900 uppercase text-sm italic">${f.nom} ${f.prenom}</div>
-                  
-                    <button onclick="openM('${f.nom} ${f.prenom}', '${t}')" class="bg-blue-600 text-white px-4 py-2 rounded-xl font-black text-[10px] uppercase italic">Assigner</button>
+                    <div class="flex gap-2 shrink-0">
+                        <button onclick="openM('${f.nom} ${f.prenom}', '${t}')" class="bg-blue-600 text-white px-4 py-2 rounded-xl font-black text-[10px] uppercase italic">Assigner</button>
+                        <button onclick="delWait('${f.nom}', '${f.prenom}', '${t}')" class="bg-red-50 text-red-400 hover:text-red-600 hover:bg-red-100 p-2 rounded-xl transition-colors"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
+                    </div>
                 </div>`).join('');
         }
 
         window.delF = (p, t) => { if(confirm("Supprimer ce pêcheur ?")) { state.fishermen = state.fishermen.filter(f => !(f.poste == p && f.type === t));
             state.lastAdded = null;
             save(); } };
+
+        window.delWait = (nom, prenom, t) => { if(confirm("Supprimer ce pêcheur ?")) {
+            const idx = state.fishermen.findIndex(f => f.nom === nom && f.prenom === prenom && f.type === t && !f.poste);
+            if(idx !== -1) { state.fishermen.splice(idx, 1); state.lastAdded = null; save(); }
+        } };
 
         window.openM = (n, t) => {
             state.targetFisherIndex = state.fishermen.findIndex(f => `${f.nom} ${f.prenom}` === n && f.type === t);
