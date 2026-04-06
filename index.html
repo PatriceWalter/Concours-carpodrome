@@ -63,8 +63,31 @@
           
             }
         });
+        const docRef = db.collection("data").doc("double-v3");
+
+        // Transaction atomique : lit les données fraîches, applique la mutation, écrit
+        const saveTx = async (mutationFn) => {
+            try {
+                await db.runTransaction(async (transaction) => {
+                    const doc = await transaction.get(docRef);
+                    const data = doc.exists ? doc.data() : { fishermen: [], contestInfo: state.contestInfo };
+                    const fishermen = data.fishermen || [];
+                    const contestInfo = data.contestInfo || state.contestInfo;
+                    const result = mutationFn(fishermen, contestInfo);
+                    transaction.set(docRef, { 
+                        fishermen: result.fishermen !== undefined ? result.fishermen : fishermen, 
+                        contestInfo: result.contestInfo !== undefined ? result.contestInfo : contestInfo 
+                    });
+                });
+            } catch(e) {
+                console.error("Transaction échouée:", e);
+                alert("Erreur de synchronisation, rechargez la page.");
+            }
+        };
+
+        // Fallback simple pour settings/reset
         const save = async () => {
-            await db.collection("data").doc("double-v3").set({ 
+            await docRef.set({ 
                 fishermen: state.fishermen, 
                 contestInfo: state.contestInfo 
             });
@@ -248,13 +271,19 @@
         }
 
         window.updateSet = () => {
-            state.contestInfo.title = document.getElementById('set_title').value;
-            state.contestInfo.date = document.getElementById('set_date').value;
-            save(); nav('index');
+            const title = document.getElementById('set_title').value;
+            const date = document.getElementById('set_date').value;
+            saveTx((fishermen, contestInfo) => {
+                return { contestInfo: { title, date } };
+            });
+            nav('index');
         };
 
-        window.resetAll = () => { if(confirm("Vider toutes les données du concours ? Cette action est irréversible.")) { state.fishermen = [];
-            save(); nav('index'); } };
+        window.resetAll = () => { if(confirm("Vider toutes les données du concours ? Cette action est irréversible.")) {
+            saveTx(() => {
+                return { fishermen: [] };
+            });
+            nav('index'); } };
 
         function renderInscription(container) {
             const hasUndo = state.lastAdded !== null;
@@ -306,22 +335,24 @@
             const poste = document.getElementById('in_poste').value;
             if(!nom || !prenom) return;
             const newFisher = { nom, prenom, type, poste: poste ? parseInt(poste) : null, weights: [] };
-            state.fishermen.push(newFisher);
-            state.lastAdded = { ...newFisher, _index: state.fishermen.length - 1 };
-            save();
+            state.lastAdded = { ...newFisher };
+            saveTx((fishermen) => {
+                fishermen.push(newFisher);
+                return { fishermen };
+            });
         };
 
         window.undoLastAdd = () => {
             if(!state.lastAdded) return;
             const la = state.lastAdded;
-            const idx = state.fishermen.findIndex(f => 
-                f.nom === la.nom && f.prenom === la.prenom && f.type === la.type && f.poste === la.poste
-            );
-            if(idx !== -1) {
-                state.fishermen.splice(idx, 1);
-                state.lastAdded = null;
-                save();
-            }
+            saveTx((fishermen) => {
+                const idx = fishermen.findIndex(f => 
+                    f.nom === la.nom && f.prenom === la.prenom && f.type === la.type && f.poste === la.poste
+                );
+                if(idx !== -1) fishermen.splice(idx, 1);
+                return { fishermen };
+            });
+            state.lastAdded = null;
         };
 
         function renderAss(t) {
@@ -344,13 +375,20 @@
                 </div>`).join('');
         }
 
-        window.delF = (p, t) => { if(confirm("Supprimer ce pêcheur ?")) { state.fishermen = state.fishermen.filter(f => !(f.poste == p && f.type === t));
+        window.delF = (p, t) => { if(confirm("Supprimer ce pêcheur ?")) {
             state.lastAdded = null;
-            save(); } };
+            saveTx((fishermen) => {
+                return { fishermen: fishermen.filter(f => !(f.poste == p && f.type === t)) };
+            });
+        } };
 
         window.delWait = (nom, prenom, t) => { if(confirm("Supprimer ce pêcheur ?")) {
-            const idx = state.fishermen.findIndex(f => f.nom === nom && f.prenom === prenom && f.type === t && !f.poste);
-            if(idx !== -1) { state.fishermen.splice(idx, 1); state.lastAdded = null; save(); }
+            state.lastAdded = null;
+            saveTx((fishermen) => {
+                const idx = fishermen.findIndex(f => f.nom === nom && f.prenom === prenom && f.type === t && !f.poste);
+                if(idx !== -1) fishermen.splice(idx, 1);
+                return { fishermen };
+            });
         } };
 
         window.openM = (n, t) => {
@@ -366,8 +404,16 @@
         window.confirmPosteAssignment = () => {
             const p = document.getElementById('modal-select-poste').value;
             if(!p) return;
-            state.fishermen[state.targetFisherIndex].poste = parseInt(p);
-            save(); document.getElementById('modal-poste').classList.add('hidden');
+            const targetFisher = state.fishermen[state.targetFisherIndex];
+            const nom = targetFisher.nom;
+            const prenom = targetFisher.prenom;
+            const type = state.currentType;
+            saveTx((fishermen) => {
+                const f = fishermen.find(f => f.nom === nom && f.prenom === prenom && f.type === type);
+                if(f) f.poste = parseInt(p);
+                return { fishermen };
+            });
+            document.getElementById('modal-poste').classList.add('hidden');
         };
 
         window.closePosteModal = () => document.getElementById('modal-poste').classList.add('hidden');
@@ -419,12 +465,20 @@
         }
 
         window.addW = () => {
-            const f = state.fishermen.find(f => f.poste == state.currentPoste && f.type === state.currentType);
             const w = parseFloat(document.getElementById('p_wei').value);
             const c = parseInt(document.getElementById('p_cou').value) || 0;
             if(!w) return;
-            f.weights.push({ period: document.getElementById('p_per').value, weight: w, fishCount: c });
-            save();
+            const period = document.getElementById('p_per').value;
+            const poste = state.currentPoste;
+            const type = state.currentType;
+            saveTx((fishermen) => {
+                const f = fishermen.find(f => f.poste == poste && f.type === type);
+                if(f) {
+                    if(!f.weights) f.weights = [];
+                    f.weights.push({ period, weight: w, fishCount: c });
+                }
+                return { fishermen };
+            });
             document.getElementById('p_wei').value = '';
             document.getElementById('p_cou').value = '1';
         };
@@ -440,15 +494,25 @@
             document.getElementById('p_wei').value = w.weight;
             document.getElementById('p_cou').value = w.fishCount;
             
-            f.weights.splice(idx, 1);
+            const poste = state.currentPoste;
+            const type = state.currentType;
+            saveTx((fishermen) => {
+                const fi = fishermen.find(fi => fi.poste == poste && fi.type === type);
+                if(fi && fi.weights) fi.weights.splice(idx, 1);
+                return { fishermen };
+            });
             alert("Les données ont été remontées dans le formulaire. Modifiez-les puis cliquez sur 'Valider'.");
         };
         window.delW = (idx) => {
             const p = prompt("Suppression réservée. Mot de passe admin :");
             if(p !== "admin") return alert("Accès refusé");
-            const f = state.fishermen.find(f => f.poste == state.currentPoste && f.type === state.currentType);
-            f.weights.splice(idx, 1);
-            save();
+            const poste = state.currentPoste;
+            const type = state.currentType;
+            saveTx((fishermen) => {
+                const f = fishermen.find(f => f.poste == poste && f.type === type);
+                if(f && f.weights) f.weights.splice(idx, 1);
+                return { fishermen };
+            });
         };
 
         render();
